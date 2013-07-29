@@ -4,3 +4,8 @@
 *.jar
 *.war
 *.ear
+
+bin
+output
+.DS_Store
+prefix_*

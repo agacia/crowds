@@ -1,0 +1,25 @@
+graph {  
+	size: 100px, 100px;
+	fill-color: white; 
+} 
+
+node { 
+    size: 2px, 2px;
+    shape: box;
+    fill-color: blue;
+    stroke-mode: none;
+    stroke-color: nonde;
+}
+
+edge { 
+	fill-color: green; 
+}
+
+node.community {
+	size: 5px, 5px;
+    shape: box;
+    fill-color: red;
+    stroke-mode: none;
+    stroke-color: yellow;
+}
+
