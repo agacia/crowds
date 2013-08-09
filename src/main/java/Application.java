@@ -1,4 +1,8 @@
+package main.java;
+
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
@@ -36,36 +40,194 @@ import org.graphstream.ui.layout.springbox.implementations.LinLog;
 import static org.graphstream.algorithm.Toolkit.*;
 
 public class Application {
+	private static String separator = "	";
+	private static String communityFileDataFormat = "step"+separator+"node id"+separator+"x"+separator+"y"+separator+"degree"+separator+"neighbors"+separator+"community id"+separator+"community score"+separator+"connected component id";
+	private static String graphFileDataFormat = "step"+separator+"nodes"+separator+"edges"+separator+"average_degree"+separator+"degree_distribution"+separator+"diameter"+separator+"average_clustering_coefficient"+separator+"connected_components"+separator+"giant_component_size"+separator+"giant_component_id"+separator+"modularity"+separator+"communities"+separator+"giant_community_size"+separator+"giant_community_id"+separator+"avg_community_modularity"+separator+"iterations"+separator+"iterationModularities";
+	
+	private static String separator2 = ",";
 
+	private static String dir = "";
+	private static String outputDir = "/output/02/";
+	private static String filePath = "/Users/agatagrzybek/Documents/divanet/fcd_0-05.dgs";
+
+	private static String styleSheetUrl = "stylesheet.css";
+	private static String communityOutputFile;
+	private static String graphOutputFile;
+
+	private static double deltaParameter = 0.05;
+	private static int numberOfIterations = 10;
+	private static int startStep = 0;
+	private static int endStep = 10;
 	
-	
+	private static String _prefix = "img";
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		String filePath = "/Users/agatagrzybek/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/vanet_0-05min.dgs";
-		String styleSheetUrl = "url('file:////Users/agatagrzybek/GraphStreamWorkspace/graph-stream-project/stylesheet.css')";
-		String outputFileCommunities = "/Users/agatagrzybek/GraphStreamWorkspace/graph-stream-project/communities.csv";
-		String outputFileGraph = "/Users/agatagrzybek/GraphStreamWorkspace/graph-stream-project/graph.txt";
+		dir = System.getProperty("user.dir");
+        System.out.println("current dir = " + dir);
+        
+		System.out.println("args " + args.length + ": ");
+		if (args.length > 1) {
+			for (int i = 0; i < args.length; ++i) {
+				String argName = args[i];
+				String argValue = args[++i];
+				System.out.println(argName + " " + argValue);
+				if (argName.equals("--inputFile")) {
+					filePath = argValue;
+				}
+				if (argName.equals("--outputDir")) {
+					outputDir = argValue;
+				}
+				if (argName.equals("--delta")) {
+					deltaParameter = Double.parseDouble(argValue);
+				}
+				if (argName.equals("--numberOfIterations")) {
+					numberOfIterations = Integer.parseInt(argValue);
+				}
+				if (argName.equals("--startStep")) {
+					startStep = Integer.parseInt(argValue);
+				}
+				if (argName.equals("--endStep")) {
+					endStep = Integer.parseInt(argValue);
+				}
+			}
+		}
+		
+		communityOutputFile = dir + outputDir + "communities.csv";
+		graphOutputFile = dir + outputDir + "graph.txt";
+		styleSheetUrl = "url('file:////"+dir+"/"+styleSheetUrl+"')";
+		String img_prefix = dir+outputDir+_prefix;
+		
 		Application app = new Application();
-		System.out.println("Reading graph " + filePath);
 		try {
-			Graph graph = app.read(filePath, styleSheetUrl, outputFileCommunities, outputFileGraph);
-			System.out.println("number of steps: " + graph.getStep());
-			System.out.println("Number of nodes: " + graph.getNodeCount());
-			System.out.println("Number of edges: " + graph.getEdgeCount());
+			Graph graph = app.read(filePath, styleSheetUrl, img_prefix);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		System.out.println("Finish");
 	}
 	
-	public FileSinkImages InitializeFSI(String styleSheetUrl) throws IOException {
-		String prefix = "prefix_";
+
+	public Graph read(String filePath, String styleSheetUrl, String prefix) throws IOException {
+		FileSinkImages fsi = InitializeFSI(styleSheetUrl, prefix);
+		HashMap<Marker, String> markers = InitializeMarkers();
+		
+		Graph graph = new DefaultGraph("fcd");
+		
+		System.out.println("Reading graph from " + filePath);
+		FileSource fs = FileSourceFactory.sourceFor(filePath);
+
+		System.out.println("Initializing graph...");
+		// connected components
+		ConnectedComponents cc = new ConnectedComponents(graph);
+		cc.setCountAttribute(markers.get(Marker.MODULE));
+//		cc.setCutAttribute("cut");
+		cc.init(graph);		
+		Modularity modularity = new Modularity(markers.get(Marker.MODULE));	
+		modularity.init(graph);
+		// communities 
+		double m = 0.1; // node characteristic preference exponent
+		double delta = deltaParameter; // Hop attenuation factor
+		Leung communityDetection = new Leung(graph, markers.get(Marker.COMMUNITY), markers.get(Marker.WEIGHT), m, delta);
+		communityDetection.staticMode();
+		markers.put(Marker.COMMUNITY, communityDetection.getMarker());
+		markers.put(Marker.COMMUNITY_SCORE, markers.get(Marker.COMMUNITY)+".score");
+		Modularity modularityCom = new Modularity(markers.get(Marker.COMMUNITY));	
+		modularityCom.init(graph);
+		
+		try {
+			fs.addSink(graph);
+		    fs.begin(filePath);
+			graph.addSink(fsi);
+			
+			BufferedWriter outCommunity = new BufferedWriter(new FileWriter(communityOutputFile));
+			outCommunity.write(communityFileDataFormat);
+			outCommunity.newLine();
+			BufferedWriter outGraph = new BufferedWriter(new FileWriter(graphOutputFile));
+			outGraph.write(graphFileDataFormat);
+			outGraph.newLine();
+			HashMap<Object, Object> communities = new HashMap<Object, Object>();
+			int maxComSize = 0;
+			String maxComId = "";
+			
+			System.out.println("Running simulation for steps: from" + startStep + " to " + endStep);
+			int step = 0;
+		    while (fs.nextStep()) {
+		    	if (step > endStep) {
+		    		break;
+		    	}
+		    	if (step >= startStep) {
+			    	System.out.println("\nstep " + step + " iterations: " + numberOfIterations);
+		    		double[] stepsModularity = new double[numberOfIterations];
+					communities = new HashMap<Object, Object>();
+
+					double sumModularity = 0;
+					// run iterations for community detection
+					for (int i = 0; i < numberOfIterations; ++i) {
+						computeAttributesForCommunityDetection(graph, markers.get(Marker.COMMUNITY));
+						communityDetection.compute();
+						double modularityIter = modularityCom.getMeasure();
+						stepsModularity[i] = modularityIter;
+						sumModularity += modularityIter;
+						
+						// write out nodes information at the last iteration
+						if (i == (numberOfIterations - 1)) {
+							for (Node node : graph.getNodeSet()) {
+								WriteNode(outCommunity, separator, separator2, step, node, markers);
+								Community community = (Community)node.getAttribute(markers.get(Marker.COMMUNITY));
+								String communityId = community.getId();
+								if (!communities.containsKey(communityId)) {
+									communities.put(communityId, 1);
+								}
+								else {
+									int comSize = (Integer)communities.get(communityId)+1;
+									if (comSize > maxComSize) {
+										maxComId = communityId;
+										maxComSize = comSize;
+									}
+									communities.put(communityId,comSize);
+								}
+							}
+						}
+					}
+					double avgModularity = sumModularity / numberOfIterations;
+					sumModularity = 0;
+					
+				    WriteGraphTimestepStatistics(step, outGraph, graph, cc, modularity, avgModularity, stepsModularity, communities, maxComSize, maxComId, markers);
+				}
+				step++;
+		    }
+
+		    System.out.println("Read events: " + step);
+			System.out.println("number of steps: " + graph.getStep());
+			System.out.println("Number of nodes: " + graph.getNodeCount());
+			System.out.println("Number of edges: " + graph.getEdgeCount());
+		    fs.end();
+			fsi.end();
+			outGraph.close();
+			outCommunity.close();
+	    } catch( IOException e) {
+	    	e.printStackTrace();
+	    } catch (ElementNotFoundException e) {
+			e.printStackTrace();
+	    }
+		finally {
+			fs.removeSink(graph);
+		}
+		return graph;
+	}
+	
+	
+	public Application() {
+	}
+	
+	public FileSinkImages InitializeFSI(String styleSheetUrl, String prefix) throws IOException {
 		OutputType type = OutputType.PNG;
 		Resolution resolution = Resolutions.HD720;
 		OutputPolicy outputPolicy = OutputPolicy.BY_STEP;
-		FileSinkImages fsi = new FileSinkImages( prefix, type, resolution, outputPolicy );
+		FileSinkImages fsi = new FileSinkImages(prefix, type, resolution, outputPolicy );
 		String styleSheet = styleSheetUrl;
 		fsi.setStyleSheet(styleSheet);
 		fsi.setLayoutPolicy( LayoutPolicy.NO_LAYOUT);
@@ -89,41 +251,64 @@ public class Application {
 	    X, Y, WEIGHT, MODULE, COMMUNITY, COMMUNITY_SCORE
 	}
 
-	public void WriteGraphTimestepStatistics(BufferedWriter out, Graph graph, ConnectedComponents cc, Modularity modularity) throws IOException {
-    	out.write("Step:\t" + graph.getStep());
-    	out.newLine();
-    	out.write("Number of nodes:\t" + graph.getNodeCount());
-    	out.newLine();
-    	out.write("Number of edges:\t" + graph.getEdgeCount());
-    	out.newLine();
+	public void WriteGraphTimestepStatistics(int step, BufferedWriter out, Graph graph, 
+			ConnectedComponents cc, Modularity modularity, double avgModularity, double[] stepsModularity, 
+			HashMap<Object, Object> communities, int maxComSize, String maxComId,
+			HashMap<Marker, String> markers) throws IOException {
+		if (graph == null) {
+			return;
+		}
+		//		"step"+separator+"nodes"+separator+"edges"+separator+"average_degree"+separator+"degree_distribution"+separator+"diameter"+separator+"average_clustering_coefficient"+separator+
+    	out.write(step+separator+graph.getNodeCount()+separator+graph.getEdgeCount()+separator);
     	Toolkit toolkit = new Toolkit();
-		Double avgDegree = toolkit.averageDegree(graph);
-		out.write("Average degree:\t" + avgDegree);
-		out.newLine();
+		out.write(toolkit.averageDegree(graph)+separator);
 		int[] degreeDistribution = toolkit.degreeDistribution(graph);
 		if (degreeDistribution != null) {
-			out.write("Degree distribution: ");
 			for (int j = 0; j < degreeDistribution.length; ++j) {
-				out.write(degreeDistribution[j]+"\t");
+				out.write(degreeDistribution[j]+separator2);
 			}
-			out.newLine();
-			out.write("Diameter: " + toolkit.diameter(graph));
-			out.newLine();
-			out.write("Average clustering coefficient: " + toolkit.averageClusteringCoefficient(graph));
-			out.newLine();
+			out.write(separator+toolkit.diameter(graph)+separator);
+			out.write(toolkit.averageClusteringCoefficient(graph)+separator);
 //			double[] clusteringCoefficients = toolkit.clusteringCoefficients(graph);
 		}
+//		"connected_components"+separator+"giant_component_size"+separator+"giant_component_size"+separator+"modularity"+
 		if (cc != null) {
-			out.write("Connected component(s):\t" + cc.getConnectedComponentsCount());
-			out.newLine();
+			out.write(cc.getConnectedComponentsCount()+separator);
 			List<Node> giantComponent = cc.getGiantComponent();
-			out.write("Giant component size:\t" + giantComponent.size());
-			out.newLine();
+			int giantComponentSize = giantComponent.size();
+			out.write(giantComponentSize+separator);
+			int ccId = 0;
+			if (giantComponentSize > 0) {
+				Node node = giantComponent.get(0);
+				ccId = (Integer)node.getAttribute(markers.get(Marker.MODULE));
+			}
+			out.write(ccId+separator);
 		}
 		if (modularity != null) {
-			out.write("Modularity: " + modularity.getMeasure());
-			out.newLine();
+			out.write(modularity.getMeasure()+separator);
 		}
+//		"communities"+separator+"giant_community_size"+separator+"giant_community_id"+separator+
+		out.write(communities.size()+separator);
+		out.write(maxComSize+separator);
+		out.write(maxComId+separator);
+////		"communities"+separator+"giant_community_size"+separator+
+//		ConnectedComponents com = new ConnectedComponents(graph);
+//		com.setCountAttribute(markers.get(Marker.COMMUNITY));
+////		com.setCutAttribute("cut");
+//		com.init(graph);
+//		out.write(com.getConnectedComponentsCount()+separator);
+//		List<Node> giantComponent = com.getGiantComponent();
+//		out.write(giantComponent.size()+separator);
+		
+//		"avg_community_modularity"+separator+"iterations"+separator+"iterationModularities";
+		if (stepsModularity != null) {
+			out.write(avgModularity+separator);
+			out.write(stepsModularity.length+separator);
+			for (int i = 0; i < stepsModularity.length; ++i) {
+				out.write(stepsModularity[i]+separator2);
+			}
+		}
+		out.newLine();
 	}
 	
 	public void WriteNode(BufferedWriter out, String separator, String separatorEdges, int step, Node node, HashMap<Marker, String> markers) throws IOException {
@@ -132,96 +317,37 @@ public class Application {
 		Double x = (Double)node.getAttribute(markers.get(Marker.X));
 		Double y = (Double)node.getAttribute(markers.get(Marker.Y));
 		Community community = (Community)node.getAttribute(markers.get(Marker.COMMUNITY));
+		
 		Double communityScore = (Double)node.getAttribute(markers.get(Marker.COMMUNITY_SCORE));
 		// step,nodeId,edgesCount,communityId,communityScore,moduleId
+		int degree = node.getEdgeSet().size();
 		out.write(step+separator+
 				nodeId+separator+
-				node.getEdgeSet().size()+separator);
+				x+separator+
+				y+separator+
+				degree+separator);
 		for (Edge edge : node.getEdgeSet()) {
 			out.write(edge.getOpposite(node).getId()+separatorEdges);
 		}
-		if (node.getEdgeSet().size() > 0) {
-			out.write(separator);
-		}
 		out.write(
-				community+separator+
+				separator+
+				community.id()+separator+
 				communityScore+separator+
 				module);
 		out.newLine();
+		
+//		if (degree > 0) {
+//			if (community.id() == 7) {
+//				node.setAttribute("ui.class", "community");
+//			}
+////			System.out.printf("node: %s, community: %s", node.getId(), community.id());
+////			System.out.printf("node: %s, neighbors: %d, community: %s, community.score: %f, communityCount: %d, module: %d %n", nodeId, node.getEdgeSet().size(), community, communityScore, communityCounts.get(community.id()), module);
+//		}
+//		else {
+//			node.setAttribute("ui.class", "");
+//		}
 	}
 	
-	public Graph read(String filePath, String styleSheetUrl, String communityOutputFile, String graphOutputFile) throws IOException {
-		FileSinkImages fsi = InitializeFSI(styleSheetUrl);
-		HashMap<Marker, String> markers = InitializeMarkers();
-		
-		Graph graph = new DefaultGraph("fcd");
-		FileSource fs = FileSourceFactory.sourceFor(filePath);
-		
-		ConnectedComponents cc = new ConnectedComponents(graph);
-		cc.setCountAttribute(markers.get(Marker.MODULE));
-//		cc.setCutAttribute("cut");
-		cc.init(graph);
-		
-		Modularity modularity = new Modularity(markers.get(Marker.MODULE));	
-		modularity.init(graph);
-
-		Leung communityDetection = new Leung(graph, markers.get(Marker.COMMUNITY), markers.get(Marker.WEIGHT));
-		communityDetection.staticMode();
-		markers.put(Marker.COMMUNITY, communityDetection.getMarker());
-		markers.put(Marker.COMMUNITY_SCORE, markers.get(Marker.COMMUNITY)+".score");
-		
-		try {
-			fs.addSink(graph);
-		    fs.begin(filePath);
-			graph.addSink(fsi);
-
-			BufferedWriter outCommunity = new BufferedWriter(new FileWriter(communityOutputFile));
-			BufferedWriter outGraph = new BufferedWriter(new FileWriter(graphOutputFile));
-			
-			Integer communityOfNode = 0;
-			String separator = ",";
-			
-			int step = 0;
-		    while (fs.nextStep()) {
-		    	step++;
-				WriteGraphTimestepStatistics(outGraph, graph, cc, modularity);
-				
-//				HashMap<Integer, Integer> communityCounts = new HashMap<Integer, Integer>();
-				computeAttributesForCommunityDetection(graph, markers.get(Marker.COMMUNITY));
-				communityDetection.compute();
-				for (Node node : graph.getNodeSet()) {
-					WriteNode(outCommunity, ",", ":", step, node, markers);
-//					if (communityCounts.get(community.id()) == null) {
-//						communityCounts.put(community.id(), 1);
-//					}
-//					else {
-//						communityCounts.put(community.id(), communityCounts.get(community.id())+1);
-//					}
-					
-//					if (community.id() == communityOfNode) {
-//						node.setAttribute("ui.class", "community");
-//						System.out.printf("node: %s, neighbors: %d, community: %s, community.score: %f, communityCount: %d, module: %d %n", nodeId, node.getEdgeSet().size(), community, communityScore, communityCounts.get(community.id()), module);
-//					}
-//					else {
-//						node.setAttribute("ui.class", "");
-//					}
-				}
-		    }
-		    System.out.println("Read events: " + step);
-		    fs.end();
-			fsi.end();
-			outGraph.close();
-			outCommunity.close();
-	    } catch( IOException e) {
-	    	e.printStackTrace();
-	    } catch (ElementNotFoundException e) {
-			e.printStackTrace();
-	    }
-		finally {
-			fs.removeSink(graph);
-		}
-		return graph;
-	}
 	
 	public void computeAttributesForCommunityDetection(Graph graph, String marker) {
 		String xMarker = "x";
@@ -248,8 +374,8 @@ public class Application {
 				}
 			}
 		}
-		if (edgeCount > 0)
-		System.out.println("max distance: " + maxDistance + " average distance: " + sumDistance / edgeCount);
+//		if (edgeCount > 0)
+//		System.out.println("max distance: " + maxDistance + " average distance: " + sumDistance / edgeCount);
 	}
 	
 	public Double calculateDistance(Double nodeX, Double nodeY, Double neighborX, Double neighborY) {
@@ -257,13 +383,12 @@ public class Application {
 		return distance;
 	}
 	
-	public void createMovie(String filePath, String styleSheetUrl) {
+	public void createMovie(String filePath, String styleSheetUrl, String prefix) {
 		// FileSinkImages
-		String prefix = "prefix_";
 		OutputType type = OutputType.PNG;
 		Resolution resolution = Resolutions.HD720;
 		OutputPolicy outputPolicy = OutputPolicy.BY_STEP;
-		FileSinkImages fsi = new FileSinkImages( prefix, type, resolution, outputPolicy );
+		FileSinkImages fsi = new FileSinkImages(prefix, type, resolution, outputPolicy );
 		String styleSheet = styleSheetUrl;
 		fsi.setStyleSheet(styleSheet);
 		fsi.setLayoutPolicy( LayoutPolicy.NO_LAYOUT);
