@@ -93,8 +93,16 @@ public class Application {
 				}
 			}
 		}
-		
+		if (!outputDir.endsWith("/")) {
+			outputDir += "/";
+		}
+		if (!outputDir.startsWith("/")) {
+			outputDir = "/" + outputDir;
+		}
 		communityOutputFile = dir + outputDir + "communities.csv";
+		System.out.println("dir: " + dir);
+		System.out.println("outputDir: " + outputDir);
+		System.out.println("communityOutputFile: " + communityOutputFile);
 		graphOutputFile = dir + outputDir + "graph.txt";
 		styleSheetUrl = "url('file:////"+dir+"/"+styleSheetUrl+"')";
 		String img_prefix = dir+outputDir+_prefix;

@@ -4,22 +4,22 @@ graph {
 } 
 
 node { 
-    size: 5px, 5px;
+    size: 10px, 10px;
     shape: box;
-    fill-color: #CDCDCD;
+    fill-color: green;
     stroke-mode: none;
     stroke-color: nonde;
-    z-index: 10
+    z-index: -10;
 }
 
 edge { 
 	fill-color: red; 
-	size: 2px;
-	z-index: 20
+	size: 4px;
+	z-index: 200;
 }
 
 node.community {
-	size: 5px, 5px;
+	size: 10px, 10px;
     shape: box;
     fill-color: red;
     stroke-mode: none;
