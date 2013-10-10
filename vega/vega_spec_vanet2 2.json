@@ -1,0 +1,97 @@
+{
+  "name": "force",
+  "width": 800,
+  "height": 800,
+  "padding": {"top":0, "bottom":0, "left":0, "right":0},
+  "data": [
+    {
+      "name": "nodes",
+      "url": "data/delta005/groups_1216.tsv",
+      "format": {"type": "tsv", "parse": {"x":"number", "y":"number", "size":"number"}},
+      "transform": [
+        {"type": "filter", "test": "d.data.metadata == 'regular'"}
+      ]
+    },
+    {
+      "name":"maxGroup",
+      "url": "data/delta005/groups_1216.tsv",
+      "format": {"type": "tsv", "parse": {"x":"number", "y":"number", "size":"number"}},
+      "transform": [
+        {"type": "filter", "test": "d.data.metadata != 'regular'"}
+      ]
+    }
+  ],
+   "scales": [
+    {
+      "name": "x",
+      "nice": true,
+      "range": "width",
+      "domain": {"data": "nodes", "field": "data.x"}
+    },
+    {
+      "name": "y",
+      "nice": true,
+      "range": "height",
+      "order": "reverse",
+      "domain": {"data": "nodes", "field": "data.y"}
+    },
+    {
+      "name": "c",
+      "type": "ordinal",
+      "domain": {"data": "nodes", "field": "data.color"}
+    },
+    {
+      "name": "s",
+      "range": [0,20],
+      "domain": {"data": "nodes", "field": "data.size"}
+    }
+  ],
+  "marks": [
+    {
+      "type": "symbol",
+      "from": {"data": "maxGroup"},
+      "properties": {
+        "enter": {
+          "x": {"scale": "x", "field": "data.x"},
+          "y": {"scale": "x", "field": "data.y"},
+          "fill": {"scale": "c", "field": "data.color"},
+          "fillOpacity": {"value": 0.5},
+          "size": {"value":50},
+          "stroke": {"value": "none"}
+        },
+        "update": {
+          "x": {"scale": "x", "field": "data.x"},
+          "y": {"scale": "x", "field": "data.y"},
+          "fill": {"scale": "c", "field": "data.color"},
+          "stroke": {"value": "none"}
+        },
+        "hover": {
+          "fill": {"value": "#f00"}
+        }
+      }
+    },  
+    {
+      "type": "symbol",
+      "from": {"data": "nodes"},
+      "properties": {
+        "enter": {
+          "x": {"scale": "x", "field": "data.x"},
+          "y": {"scale": "x", "field": "data.y"},
+          "fill": {"scale": "c", "field": "data.color"},
+          "fillOpacity": {"value": 0.5},
+          "stroke": {"value": "none"},
+          "size": {"scale": "s", "field": "data.size"}
+        },
+        "update": {
+          "x": {"scale": "x", "field": "data.x"},
+          "y": {"scale": "x", "field": "data.y"},
+          "fill": {"scale": "c", "field": "data.color"},
+          "stroke": {"value": "none"}
+        },
+        "hover": {
+          "fill": {"value": "#f00"}
+        }
+      }
+    }
+  ]
+}

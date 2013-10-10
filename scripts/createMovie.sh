@@ -7,3 +7,4 @@ PREFIX="prefix_"
 OUTPUT="graphstream-movie.avi"
  
 mencoder "mf://$PREFIX*.$EXT" -mf fps=$FPS:type=$EXT -ovc lavc -lavcopts $OPT -o $OUTPUT -nosound -vf scale
+
