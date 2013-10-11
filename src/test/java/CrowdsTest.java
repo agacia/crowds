@@ -28,9 +28,14 @@ public class CrowdsTest {
 	private static String _prefix = "img";
 	private static String img_prefix;
 	private static String outputDir = "/Users/agatagrzybek/GraphStreamWorkspace/crowds/output/eclipse/";
-	private static String algorithm = "EpidemicCommunityAlgorithm";
+//	private static String algorithm = "EpidemicCommunityAlgorithm";
 //	private static String algorithm = "Leung";
-//	private static String algorithm = "MobileLeung";
+	private static String algorithm = "MobileLeung";
+//	private static String algorithm = "Sharc";
+//	private static String algorithm = "SawSharc";
+//	private static String algorithm = "DynSharc";
+//	private static String algorithm = "NewSawSharc";
+//	private static String algorithm = "SandSharc";
 	
 	/**
 	 * @param args
@@ -51,12 +56,13 @@ public class CrowdsTest {
 			params.put("weightMarker", markers.get(Marker.WEIGHT));
 		}
 		// MobileLeung
-//		params.put("weightMarker", markers.get(Marker.WEIGHT)); 
-//		String[] mobilityMarkers = { markers.get(Marker.SPEED), markers.get(Marker.LANE), markers.get(Marker.ANGLE) };
-//		params.put("mobilityMarkers", mobilityMarkers);
-//		params.put("m", 0.1);
-//		params.put("delta", 0.05);
-//		
+		if (algorithm.equals("MobileLeung")) {
+			params.put("weightMarker", markers.get(Marker.WEIGHT)); 
+			String[] mobilityMarkers = { markers.get(Marker.SPEED), markers.get(Marker.LANE), markers.get(Marker.ANGLE) };
+			params.put("mobilityMarkers", mobilityMarkers);
+			params.put("m", 0.1);
+			params.put("delta", 0.05);
+		}
 		String[] printOutMarkers = { markers.get(Marker.X), markers.get(Marker.Y) };
 		crowds.set_printOutMarkers(printOutMarkers);
 		crowds.openOutputFiles(communityOutputFile, communityFileDataFormat, graphOutputFile, graphFileDataFormat, sep, sep2);
