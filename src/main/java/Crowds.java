@@ -12,6 +12,9 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
+import org.graphstream.algorithm.APSP;
+import org.graphstream.algorithm.APSP.APSPInfo;
+import org.graphstream.algorithm.APSP.TargetPath;
 import org.graphstream.algorithm.Algorithm;
 import org.graphstream.algorithm.ConnectedComponents;
 import org.graphstream.algorithm.Toolkit;
@@ -34,9 +37,7 @@ import org.graphstream.stream.file.FileSinkImages.OutputType;
 import org.graphstream.stream.file.FileSinkImages.Resolution;
 import org.graphstream.stream.file.FileSinkImages.Resolutions;
 import org.graphstream.stream.file.FileSource;
-import org.graphstream.stream.file.FileSourceDGS;
 import org.graphstream.stream.file.FileSourceFactory;
-import org.graphstream.ui.graphicGraph.stylesheet.StyleConstants.Units;
 import org.graphstream.ui.spriteManager.Sprite;
 import org.graphstream.ui.spriteManager.SpriteManager;
 import org.graphstream.ui.swingViewer.View;
@@ -44,7 +45,6 @@ import org.graphstream.ui.swingViewer.Viewer;
 import org.graphstream.ui.layout.Layout;
 import org.graphstream.ui.layout.LayoutRunner;
 import org.graphstream.ui.layout.springbox.implementations.LinLog;
-
 import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import static org.graphstream.algorithm.Toolkit.*;
@@ -78,6 +78,7 @@ public class Crowds {
 	String _sep2;
 //	Dictionary<String, Integer> _communities;
 	CommunityDistribution _comDist;
+	String _goal = "communities";
 	
 	public Crowds() {
 		_numberOfIterations = 1;
@@ -104,6 +105,10 @@ public class Crowds {
 	public void set_printOutMarkers(String[] _printOutMarkers) {
 		this._printOutMarkers = _printOutMarkers;
 	}
+	
+	public void set_goal(String goal) {
+		this._goal = goal;
+	}
 
 	/**
 	 * Opens DGS file and initialize graph
@@ -116,8 +121,9 @@ public class Crowds {
 	 * Opens DGS file and initialize graph
 	 */
 	public void readGraph(String filePath, String styleSheetUrl, String imagesPrefix) {
-		
-		System.out.println("Reading graph from " + filePath);
+
+		System.out.println("Reading graph from\t" + filePath);
+		System.out.println("Goal\t" + _goal);
 		try {
 			_filesource = FileSourceFactory.sourceFor(filePath);
 			_graph = new DefaultGraph("fcd");
@@ -131,10 +137,9 @@ public class Crowds {
 				_graph.addSink(_fsi);
 				initializeFsi(styleSheetUrl, imagesPrefix);
 			}
-			System.out.println("_filesource.nextStep() " + _filesource.nextStep());
 		}
 		catch (Exception e) {
-			System.out.println("Error " + e.getMessage());
+			System.err.println("Error " + e.getMessage());
 			e.printStackTrace();
 			return;
 		}
@@ -146,7 +151,7 @@ public class Crowds {
 	
 	public void initializeConnectedComponents(String marker, String cutMarker) {
 		_ccMarker = marker;
-		System.out.println("Initializing graph: connected components and modularity for marker \"" + _ccMarker + "\"");
+		System.out.println("Marker for connected components and modularity\t\"" + _ccMarker + "\"");
 		_cc = new ConnectedComponents(_graph);
 		_cc.setCountAttribute(_ccMarker);
 		if (cutMarker != null && !cutMarker.isEmpty()) {
@@ -190,11 +195,11 @@ public class Crowds {
 			algorithmClass = Class.forName("org.graphstream.algorithm.community." + algorithm);
 			_algorithm = (DecentralizedCommunityAlgorithm) algorithmClass.newInstance();
 		} catch (Exception e) {
-			System.out.println("Exception! " + "Algorithm org.graphstream.algorithm.community." + algorithm + " cannot be created.");
+			System.err.println("Error! " + "Algorithm org.graphstream.algorithm.community." + algorithm + " cannot be created.");
 			e.printStackTrace();
 		} 
 		if (_algorithm == null) {
-			System.err.println("Algorithm org.graphstream.algorithm.community." + algorithm + " not found.");
+			System.err.println("Error! Algorithm org.graphstream.algorithm.community." + algorithm + " not found.");
 			return;
 		}
 		
@@ -206,48 +211,58 @@ public class Crowds {
 		_algorithm.setParameters(_algorithmParameters);
 		_communityMarker = _algorithm.getMarker();
 		_scoreMarker = _communityMarker + ".score";
-		
 		printAlgorithmInfo();
 		
 		Modularity modularityCom = new Modularity(_communityMarker);	
-		modularityCom.init(_graph);
-		_comDist = new CommunityDistribution(_communityMarker);
-		_comDist.init(_graph);
-		
+		if (_goal.equals("communities")) {
+			modularityCom.init(_graph);
+			_comDist = new CommunityDistribution(_communityMarker);
+			_comDist.init(_graph);
+		}	
 		int step = 0;
 		long start_time = System.currentTimeMillis();
 		System.out.println("Starting simulation for steps:\t" + _startStep + " - " + _stopStep + " at " + start_time);
+		
 		try {
 			while (_filesource.nextStep()) {
 				if (step > _stopStep) {
 					break;
 				}
 				if (step >= _startStep) {
-			    	System.out.println("step:\t" + step);
+					long currentTime = System.currentTimeMillis();
+			    	System.out.println("step:\t" + step + "\tstopStep\t"+_stopStep 
+			    			+ "\tnodes\t"+_graph.getNodeCount() + "\tedgess\t"+_graph.getEdgeCount()
+			    			+ "\ttime\t" + currentTime + "\tduration\t" + (currentTime - start_time));
+	
 				}
+				if (_goal.equals("communities"))	{
 				_cc.compute();
 				_ccDist.compute();
-				
-				double sumModularity = 0;
-				double[] stepsModularity = new double[_numberOfIterations];
-				for (int i = 0; i < _numberOfIterations; ++i) {
-					_singletons = 0;
-					_connected = 0;
-					_algorithm.compute();
-					modularityCom.compute();
-					_comDist.compute();
-					double modularityIter = modularityCom.getMeasure();
-					stepsModularity[i] = modularityIter;
-					sumModularity += modularityIter;
-					if (i == (_numberOfIterations - 1)) { // write out nodes information during the the last iteration
-						writeNodes(step);
+					double sumModularity = 0;
+					double[] stepsModularity = new double[_numberOfIterations];
+					for (int i = 0; i < _numberOfIterations; ++i) {
+						_singletons = 0;
+						_connected = 0;
+						_algorithm.compute();
+						modularityCom.compute();
+						_comDist.compute();
+						double modularityIter = modularityCom.getMeasure();
+						stepsModularity[i] = modularityIter;
+						sumModularity += modularityIter;
+						if (i == (_numberOfIterations - 1)) { // write out nodes information during the the last iteration
+							writeNodes(step);
+						}
 					}
+					double avgModularity = sumModularity / _numberOfIterations;
+					WriteGraphTimestepStatistics(step, avgModularity, stepsModularity);
 				}
-				double avgModularity = sumModularity / _numberOfIterations;
-				WriteGraphTimestepStatistics(step, avgModularity, stepsModularity);
 				++step;
 			}
 			printSummary(System.currentTimeMillis()-start_time);
+			if (_goal.equals("ASPL")) {
+				System.out.println("Computing aspl for step:\t" + step);
+				computeASPL();
+			}
 			_filesource.end();
 			if (_createImages) {
 				_fsi.end();
@@ -263,23 +278,51 @@ public class Crowds {
 	    return;
 	}
 	
+	private void computeASPL() {
+		APSP apsp = new APSP();
+        apsp.init(_graph); // registering apsp as a sink for the graph
+        apsp.setDirected(false); // undirected graph
+        apsp.setWeightAttributeName("weight"); // ensure that the attribute name used is "weight"
+        apsp.compute(); // the method that actually computes shortest paths
+        double allSum = 0;
+        for (Node node1 : _graph.getNodeSet()) {
+			String id1 = node1.getId(); 
+        	APSPInfo info = _graph.getNode(id1).getAttribute(APSPInfo.ATTRIBUTE_NAME);
+//        	System.out.println(info.getShortestPathTo(id2) + ", " + info.getShortestPathTo(id2).getEdgeCount() + ", length: " + info.getMinimumLength());
+			double sumShortest = 0;	
+			HashMap<String, TargetPath>	targets = info.targets;
+			if (targets.size() > 0) {
+				for (TargetPath path : targets.values()) {
+					sumShortest += path.distance;
+	//				System.out.println(id1 + " shortest path to the target " +path.target.getId()  + "= " + path.distance);
+				}
+				double avgShortest = sumShortest / targets.size();
+				allSum += avgShortest;
+				//System.out.println(id1 + " avg shortest path to all targets " + targets.size() + "= " + avgShortest);
+			}
+        }
+//        System.out.println(" allSum " + allSum);
+//        System.out.println(" _graph.getNodeCount() " + _graph.getNodeCount());
+        double allAvgShortest = allSum / (double)_graph.getNodeCount();
+        System.out.println(" avg shortest path to all targets " + allAvgShortest);
+	}
+	
 	private void printAlgorithmInfo() {
-		System.out.println("---------- New community detection");
-		System.out.println("algorithm:\t" + _algorithm);
-		System.out.println("marker:\t" + _communityMarker);
-		System.out.println("params:\t" + _algorithmParameters);
-		System.out.println("communityMarker\t" + _communityMarker);
+		System.out.println("Running community detection ... ");
+		System.out.println("algorithm\t" + _algorithm);
+		System.out.println("parameters\t" + _algorithmParameters);
+		System.out.println("community marker\t" + _communityMarker);
 	}
 	
 	private void printSummary(long duration) {
 		System.out.println("Finish simulation at " + System.currentTimeMillis() + ", simulation time: " + duration);
-		System.out.println("number of steps: " + _graph.getStep());
-		System.out.println("Number of nodes: " + _graph.getNodeCount());
-		System.out.println("Number of edges: " + _graph.getEdgeCount());
+		System.out.println("number of steps\t" + _graph.getStep());
+		System.out.println("Number of nodes\t" + _graph.getNodeCount());
+		System.out.println("Number of edges\t" + _graph.getEdgeCount());
 	}
 	
 	public void openOutputFiles(String communityOutputFile, String communityFileDataFormat, String graphOutputFile, String graphFileDataFormat, String sep, String sep2) {
-		System.out.println("Open output files: " + communityOutputFile + ", " + graphOutputFile);
+		System.out.println("Open output files\t" + communityOutputFile + ", " + graphOutputFile);
 		_sep = sep;
 		_sep2 = sep2;
 		try {
@@ -326,9 +369,9 @@ public class Crowds {
 			int degree = node.getEdgeSet().size();
 			values.put("degree", degree);
 			String neighbors = "";
-			for (Edge edge : node.getEdgeSet()) {
-				neighbors+=edge.getOpposite(node).getId()+_sep2;
-			}
+//			for (Edge edge : node.getEdgeSet()) {
+//				neighbors+=edge.getOpposite(node).getId()+_sep2;
+//			}
 			values.put("neighbors", neighbors);
 			if (degree > 0) {
 				++_connected;
@@ -337,12 +380,16 @@ public class Crowds {
 				++_singletons;
 			}
 			try {
+				int headersCount = _outCommunityHeaders.length;
+				int i = 0;
 				for (String column : _outCommunityHeaders) {
-					_outCommunity.write(values.get(column)+_sep);
-//					System.out.print(column+":"+values.get(column)+_sep);
+					if (++i < headersCount) {	
+						_outCommunity.write(values.get(column)+_sep);
+					}
+					else {
+						_outCommunity.write(values.get(column) + "\n");
+					}
 				}
-				_outCommunity.newLine();
-//				System.out.println();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -418,8 +465,15 @@ public class Crowds {
 			values.put("iteration_modularities", modularities);
 		}
 		
+		int headersCount = _outGraphHeaders.length;
+		int i = 0;
 		for (String column : _outGraphHeaders) {
-			_outGraph.write(values.get(column) + _sep);
+			if (++i != headersCount) {
+				_outGraph.write(values.get(column) + _sep);
+			}
+			else {
+				_outGraph.write((String)values.get(column));
+			}
 		}
 		
 		_outGraph.newLine();

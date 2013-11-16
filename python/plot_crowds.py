@@ -24,6 +24,8 @@ parser.add_option('--outputDir', help=("Output dir"), type="string", dest='outpu
 parser.add_option('--inputDir', help=("Input dir"), type="string", dest='inputDir')
 parser.add_option('--columns', help=("Columns for average"), type="string", dest='columns')
 parser.add_option('--type', help=("Type"), type="string", dest='type')
+parser.add_option('--indexStart', help=("Index start to plot"), type="int", dest='indexStart')
+parser.add_option('--indexStop', help=("Index stop to plot"), type="int", dest='indexStop')
 
 (options, args) = parser.parse_args()
 
@@ -127,7 +129,7 @@ def plotComparison(plottedColumn, files):
 
 
 
-def plotMultipleSeries(inputData, xColumn, plottedColumnsSingle, plottedColumnMultiple, legends, xtitle, ytitle, seriesType = "line", sortColumn=None):
+def plotMultipleSeries(inputData, xColumn, indexStart, indexStop, plottedColumnsSingle, plottedColumnMultiple, legends, xtitle, ytitle, seriesType = "line", sortColumn=None):
 	if len(inputData) < 1:
 		print "No data to plot"
 		return
@@ -145,7 +147,10 @@ def plotMultipleSeries(inputData, xColumn, plottedColumnsSingle, plottedColumnMu
 	label = inputData.keys()[0]
 	data = inputData[label]
 	x = data[xColumn]
-			
+	print x
+	# x = np.split(x, [indexStart, indexStop])
+	x = x[indexStart: indexStop]
+	print x
 	# read single columns
 	axis = {}
 	# print "Reading single data from any data set, e.g. {0}".format(label)
@@ -165,6 +170,9 @@ def plotMultipleSeries(inputData, xColumn, plottedColumnsSingle, plottedColumnMu
 		color = colors[axisNum % len(colors)]
 		if seriesType == "line":
 			linestyle = linestyles[axisNum % len(linestyles)]
+			# y = np.split(y, [indexStart, indexStop])
+			y = y[indexStart: indexStop]
+
 			print "printing line {0} {1} {2}".format(label, color, linestyle)
 			ax.plot(x, y, linestyle=linestyle, color=color, linewidth=2.0, markersize=10, label="{0}".format(label))	
 			legend = ax.legend(loc='best')
@@ -244,14 +252,6 @@ def calculateAverages(inputData, columns, outputfile):
 		# print sumData
 		file = open(outputfile, 'w')
 		file.close()
-		# print "outputfile" + outputfile
-		# names = delimiterStr.join(sumData.dtype.names)
-		# names = np.array(sumData.dtype.names)
-		# print names
-		# print sumData
-		# print len(names)
-		# print len(sumData)
-		# print np.insert(sumData, 1, names, 0)  
 		
 		np.savetxt(outputfile, sumData, delimiter=delimiterStr, fmt="%s")
 		file = open(outputfile, 'r')
@@ -288,6 +288,7 @@ if options.inputDir:
 	files.sort()
 	
 	legendTitles = ['delta=0.05', 'delta=0.25', 'delta=0.5']
+	legendTitles = ['delta=0.05', 'delta=0.25', 'delta=0.5']
 	# plotComparison("gs_average_community_size", files)
 	# plotComparison("gs_max_community_size", files)
 	plotComparison("com_modularity", files)
@@ -297,25 +298,41 @@ if options.inputFiles:
 	inputFiles = options.inputFiles.split(' ')
 	inputLabels = options.labelTitles.split(' ')
 	inputData = readData(inputFiles, inputLabels)
+	indexStart = 0
+	indexStop = 10
+
+	if options.indexStart:
+		indexStart = options.indexStart
+	if options.indexStop:
+		indexStop = options.indexStop-1
+	print "indexStart"
+	print indexStart
+	print "indexStop"
+	print indexStop
 
 	# graph.txt
 	if options.type=="graph":
-		plotMultipleSeries(inputData, "step", ["nodes", "singletons", "connected"], [], 
+		plotMultipleSeries(inputData, "step", indexStart, indexStop, ["nodes", "singletons", "connected"], [], 
 			{"nodes":"Vehicles", "singletons":"Singletons", "connected": "Connected"}, "Simulation step", "Number of vehicles" )
-		plotMultipleSeries(inputData, "step", ["nodes", "singletons", "connected"], ["com_count", "cc_count"], 
+		plotMultipleSeries(inputData, "step",  indexStart, indexStop,  ["nodes", "singletons", "connected"], ["com_count", "cc_count"], 
 			{"nodes":"Vehicles", "singletons":"Singletons", "connected": "Connected", "com_count" : "Communities - ", "cc_count" : "CC - " }, "Simulation step", "Number" )
-		plotMultipleSeries(inputData, "step", [], ["com_count"], {"com_count" : ""}, "Simulation step", "Number of communities" )
-		plotMultipleSeries(inputData, "step", [], ["max_com_size"], {"max_com_size" : ""}, "Simulation step", "Maximum community size" )
-		plotMultipleSeries(inputData, "step", [], ["avg_com_size"], {"avg_com_size" : ""}, "Simulation step", "Average community size" )
-		plotMultipleSeries(inputData, "step", ["avg_degree"], ["avg_com_size", "avg_cc_size"], {"avg_degree" : "Average degree", "avg_com_size" : "Community size - ", "avg_cc_size" : "CC size - "}, "Simulation step", "Degree and number" )
-
+		plotMultipleSeries(inputData, "step", indexStart, indexStop, [], ["com_count"], {"com_count" : ""}, "Simulation step", "Number of communities" )
+		plotMultipleSeries(inputData, "step", indexStart, indexStop,  [], ["max_com_size"], {"max_com_size" : ""}, "Simulation step", "Maximum community size" )
+		plotMultipleSeries(inputData, "step", indexStart, indexStop,  [], ["avg_com_size"], {"avg_com_size" : ""}, "Simulation step", "Average community size" )
+		plotMultipleSeries(inputData, "step", indexStart, indexStop,  ["avg_degree"], ["avg_com_size"], {"avg_degree" : "Average degree", "avg_com_size" : "Community size - "}, "Simulation step", "Degree and com size" )
+		plotMultipleSeries(inputData, "step", indexStart, indexStop,  [], ["avg_cc_size"], {"avg_cc_size" : "CC size - "}, "Simulation step", "CC size" )
+		plotMultipleSeries(inputData, "step", indexStart, indexStop, [], ["com_modularity"], {"com_modularity" : ""}, "Simulation step", "Modularity" )
+		plotMultipleSeries(inputData, "step", indexStart, indexStop, [], ["avg_degree"], {"avg_degree" : ""}, "Simulation step", "Degree" )
+		
 	# vehicleanalysis.tsv
 	if options.type == "vehicles":
-		plotMultipleSeries(inputData, "start_step", [], ["changes_community"], {"changes_community":""}, "Simulation step", "Changes of community", "scatterplot", "start_step" )
-		plotMultipleSeries(inputData, "start_step", [], ["stabilitycom"], {"stabilitycom":""}, "Simulation step", "Stability", "scatterplot", "start_step" )
-		plotMultipleSeries(inputData, "start_step", [], ["percent_in_community"], {"percent_in_community":""}, "Simulation step", "percent in community", "scatterplot", "start_step" )
+		plotMultipleSeries(inputData, "start_step", indexStart, indexStop,  [], ["changes_community"], {"changes_community":""}, "Simulation step", "Changes of community", "scatterplot", "start_step" )
+		plotMultipleSeries(inputData, "start_step", indexStart, indexStop,  [], ["stabilitycom"], {"stabilitycom":""}, "Simulation step", "Stability", "scatterplot", "start_step" )
+		plotMultipleSeries(inputData, "start_step", indexStart, indexStop,  [], ["percent_in_community"], {"percent_in_community":""}, "Simulation step", "percent in community", "scatterplot", "start_step" )
 	
 	if options.type == "average":
 		calculateAverages(inputData, options.columns.split(' '), options.outputDir+options.filename)
+
+
 
 
