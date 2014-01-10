@@ -2,7 +2,7 @@
  
 EXT=png
 OPT="vcodec=mpeg4:vqscale=2:vhq:v4mv:trell:autoaspect"
-FPS=15
+FPS=10
 PREFIX="img_"
 OUTPUT="graphstream-movie.avi"
  

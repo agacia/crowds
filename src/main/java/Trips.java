@@ -1,57 +1,44 @@
 package main.java;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.DecimalFormat;
-import java.util.Collection;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.Map;
 
 import org.graphstream.algorithm.APSP;
-import org.graphstream.algorithm.APSP.APSPInfo;
-import org.graphstream.algorithm.APSP.TargetPath;
-import org.graphstream.algorithm.Algorithm;
 import org.graphstream.algorithm.ConnectedComponents;
 import org.graphstream.algorithm.Toolkit;
+import org.graphstream.algorithm.APSP.APSPInfo;
+import org.graphstream.algorithm.APSP.TargetPath;
 import org.graphstream.algorithm.community.Community;
 import org.graphstream.algorithm.community.DecentralizedCommunityAlgorithm;
-import org.graphstream.algorithm.community.EpidemicCommunityAlgorithm;
-import org.graphstream.algorithm.community.Leung;
-import org.graphstream.algorithm.community.MobileLeung;
 import org.graphstream.algorithm.measure.CommunityDistribution;
 import org.graphstream.algorithm.measure.Modularity;
-import org.graphstream.graph.Edge;
-import org.graphstream.graph.ElementNotFoundException;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
-import org.graphstream.graph.implementations.*;
+import org.graphstream.graph.implementations.DefaultGraph;
 import org.graphstream.stream.file.FileSinkImages;
+import org.graphstream.stream.file.FileSource;
+import org.graphstream.stream.file.FileSourceFactory;
 import org.graphstream.stream.file.FileSinkImages.LayoutPolicy;
 import org.graphstream.stream.file.FileSinkImages.OutputPolicy;
 import org.graphstream.stream.file.FileSinkImages.OutputType;
 import org.graphstream.stream.file.FileSinkImages.Resolution;
 import org.graphstream.stream.file.FileSinkImages.Resolutions;
-import org.graphstream.stream.file.FileSource;
-import org.graphstream.stream.file.FileSourceFactory;
-import org.graphstream.ui.spriteManager.Sprite;
-import org.graphstream.ui.spriteManager.SpriteManager;
-import org.graphstream.ui.swingViewer.View;
-import org.graphstream.ui.swingViewer.Viewer;
-import org.graphstream.ui.layout.Layout;
-import org.graphstream.ui.layout.LayoutRunner;
-import org.graphstream.ui.layout.springbox.implementations.LinLog;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 
-import static org.graphstream.algorithm.Toolkit.*;
+public class Trips {
 
-public class Crowds {
-	
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+	}
+
 	private FileSource _filesource;
 	private Graph _graph;
 	private String _ccMarker;
@@ -64,14 +51,9 @@ public class Crowds {
 	private CommunityDistribution _ccDist;
 	private Modularity _modularity;
 	private DecentralizedCommunityAlgorithm _algorithm;
-	private DecentralizedCommunityAlgorithm _congestionAlgorithm;
 	private int _startStep;
 	int _stopStep;
 	int _numberOfIterations;
-	FileSinkImages _fsi;
-	Boolean _createImages;
-	String _imgPrefix;
-	String _styleSheetUrl;
 	int _singletons;
 	int _connected;
 	BufferedWriter _outCommunity;
@@ -80,19 +62,7 @@ public class Crowds {
 	String[] _outGraphHeaders;
 	String _sep;
 	String _sep2;
-//	Dictionary<String, Integer> _communities;
 	CommunityDistribution _comDist;
-	String _goal = "communities";
-	
-	public Crowds() {
-		_numberOfIterations = 1;
-		_startStep = 0;
-		_stopStep = 0;
-		_createImages = false;
-		_singletons = 0;
-		_connected = 0;
-//		_communities = new Hashtable<String, Integer>();
-	}
 	
 	public int get_numberOfIterations() {
 		return _numberOfIterations;
@@ -105,10 +75,6 @@ public class Crowds {
 	public void set_printOutMarkers(String[] _printOutMarkers) {
 		this._printOutMarkers = _printOutMarkers;
 	}
-	
-	public void set_goal(String goal) {
-		this._goal = goal;
-	}
 
 	/**
 	 * Opens DGS file and initialize graph
@@ -116,20 +82,11 @@ public class Crowds {
 	public void readGraph(String filePath) {
 
 		System.out.println("Reading graph from\t" + filePath);
-		System.out.println("Goal\t" + _goal);
 		try {
 			_filesource = FileSourceFactory.sourceFor(filePath);
 			_graph = new DefaultGraph("fcd");
 			_filesource.addSink(_graph);
 		    _filesource.begin(filePath);
-			if (_createImages) {
-				if (_styleSheetUrl == null || _styleSheetUrl.isEmpty()) {
-					System.err.println("In order to create images, please specify a correct styleSheetUrl. styleSheetUrl: "+ _styleSheetUrl); 
-					_createImages = false;
-				}
-				initializeFsi();
-				_graph.addSink(_fsi);
-			}
 		}
 		catch (Exception e) {
 			System.err.println("Error " + e.getMessage());
@@ -174,7 +131,7 @@ public class Crowds {
 		return true;
 	}
 	
-	public void detectCommunities(String algorithm, String marker, Dictionary<String, Object> params, String congestion, String congestionMarker, Dictionary<String, Object> congestionParams) {
+	public void detectCommunities(String algorithm, String marker, Dictionary<String, Object> params) {
 		if (!checkPreliminaries()) {
 			return;
 		}
@@ -195,48 +152,25 @@ public class Crowds {
 			System.err.println("Error! Algorithm org.graphstream.algorithm.community." + algorithm + " not found.");
 			return;
 		}
-		// Get congestion
-		Class congestionClass;
-		if (congestion != null && !congestion.isEmpty()) {
-			try {
-				congestionClass = Class.forName("org.graphstream.algorithm.community." + congestion);
-				_congestionAlgorithm = (EpidemicCommunityAlgorithm) congestionClass.newInstance();
-			} catch (InstantiationException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IllegalAccessException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-//			private Dictionary<String, Object>  
-
-			_congestionAlgorithm.init(_graph);
-			_congestionAlgorithm.staticMode();
-			_congestionAlgorithm.setMarker(congestionMarker);
-			_congestionAlgorithm.setParameters(congestionParams);
-			printAlgorithmInfo(_congestionAlgorithm, congestionParams, _congestionAlgorithm.getMarker());
-		}
+		
+		_communityMarker = marker;
 		_algorithmParameters = params;
 		_algorithm.init(_graph);
 		_algorithm.staticMode();
-		_algorithm.setMarker(marker);
+		_algorithm.setMarker(_communityMarker);
 		_algorithm.setParameters(_algorithmParameters);
 		_communityMarker = _algorithm.getMarker();
 		_scoreMarker = _communityMarker + ".score";
-		printAlgorithmInfo(_algorithm, _algorithmParameters, _communityMarker);
+		printAlgorithmInfo();
 		
 		Modularity modularityCom = new Modularity(_communityMarker);	
-		if (_goal.equals("communities")) {
-			modularityCom.init(_graph);
-			_comDist = new CommunityDistribution(_communityMarker);
-			_comDist.init(_graph);
-		}	
+		modularityCom.init(_graph);
+		_comDist = new CommunityDistribution(_communityMarker);
+		_comDist.init(_graph);
 		int step = 0;
 		long start_time = System.currentTimeMillis();
 		System.out.println("Starting simulation for steps:\t" + _startStep + " - " + _stopStep + " at " + start_time);
+		
 		try {
 			while (_filesource.nextStep()) {
 				if (step > _stopStep) {
@@ -249,42 +183,31 @@ public class Crowds {
 			    			+ "\ttime\t" + currentTime + "\tduration\t" + (currentTime - start_time));
 	
 				}
-				if (_goal.equals("communities"))	{
 				_cc.compute();
 				_ccDist.compute();
-					double sumModularity = 0;
-					double[] stepsModularity = new double[_numberOfIterations];
-					for (int i = 0; i < _numberOfIterations; ++i) {
-						_singletons = 0;
-						_connected = 0;
-						_algorithm.compute();
-						if (_congestionAlgorithm != null) {
-							_congestionAlgorithm.compute();
-						}
-						modularityCom.compute();
-						_comDist.compute();
-						double modularityIter = modularityCom.getMeasure();
-						stepsModularity[i] = modularityIter;
-						sumModularity += modularityIter;
-						if (i == (_numberOfIterations - 1)) { // write out nodes information during the the last iteration
-							writeNodes(step);
-						}
+				double sumModularity = 0;
+				double[] stepsModularity = new double[_numberOfIterations];
+				for (int i = 0; i < _numberOfIterations; ++i) {
+					_singletons = 0;
+					_connected = 0;
+					_algorithm.compute();
+					modularityCom.compute();
+					_comDist.compute();
+					double modularityIter = modularityCom.getMeasure();
+					stepsModularity[i] = modularityIter;
+					sumModularity += modularityIter;
+					if (i == (_numberOfIterations - 1)) { // write out nodes information during the the last iteration
+						writeNodes(step);
 					}
-					double avgModularity = sumModularity / _numberOfIterations;
-					WriteGraphTimestepStatistics(step, avgModularity, stepsModularity);
 				}
+				double avgModularity = sumModularity / _numberOfIterations;
+				WriteGraphTimestepStatistics(step, avgModularity, stepsModularity);
 				++step;
 			}
-			System.out.println("Finished at step " + step + ", graph.getStep: " +  _graph.getStep() + ", _fileSource.nextStep: " + _filesource.nextStep());
 			printSummary(System.currentTimeMillis()-start_time);
-			if (_goal.equals("ASPL")) {
-				System.out.println("Computing aspl for step:\t" + step);
-				computeASPL();
-			}
+//			System.out.println("Computing aspl for step:\t" + step);
+//			computeASPL();
 			_filesource.end();
-			if (_createImages) {
-				_fsi.end();
-			}
 			_outGraph.close();
 			_outCommunity.close();
 		} catch (IOException e) {
@@ -325,11 +248,11 @@ public class Crowds {
         System.out.println(" avg shortest path to all targets " + allAvgShortest);
 	}
 	
-	private void printAlgorithmInfo(DecentralizedCommunityAlgorithm algorithm, Dictionary<String,Object> algorithmParameters, String marker) {
+	private void printAlgorithmInfo() {
 		System.out.println("Running community detection ... ");
-		System.out.println("Algorithm\t" + algorithm);
-		System.out.println("Parameters\t" + algorithmParameters);
-		System.out.println("Marker\t" + marker);
+		System.out.println("algorithm\t" + _algorithm);
+		System.out.println("parameters\t" + _algorithmParameters);
+		System.out.println("community marker\t" + _communityMarker);
 	}
 	
 	private void printSummary(long duration) {
@@ -370,49 +293,25 @@ public class Crowds {
 		for (Node node : _graph.getNodeSet()) {
 			Object cc = node.getAttribute(_ccMarker);
 			Community community = (Community)node.getAttribute(_communityMarker);
-			Object linkId = "";
-			if (node.hasAttribute("vehicleLane")) {
-				linkId = (Object)node.getAttribute("vehicleLane");
-			}
-			Object speed = 0;
-			if (node.hasAttribute("vehicleSpeed")) {
-				speed = (Object)node.getAttribute("vehicleSpeed");
-			}
-			Object avgSpeed = 0;
-			if (node.hasAttribute("vehicleAvgSpeed")) {
-				avgSpeed = (Object)node.getAttribute("vehicleAvgSpeed");
-				if (avgSpeed.equals(0.0) && !speed.equals(0)) {
-					avgSpeed = speed;
-				}
-			}
-			Integer numberOfStopsOnLane = 0;
-			if (node.hasAttribute("vehicleLane.stops")) {
-				numberOfStopsOnLane = node.getAttribute("vehicleLane.stops");
-			}
 			String communityId = community.getId();
 			Double score = 0.0;
 			if (_scoreMarker != null && !_scoreMarker.isEmpty()) {
 				score = node.getAttribute(_scoreMarker);
 			}		
 			int degree = node.getEdgeSet().size();
-			DecimalFormat df = new DecimalFormat("#.##");
 			try {
 				int comSize = _comDist.communitySize(community);
 				_outCommunity.write(step+"\t");
 				_outCommunity.write(node.getId()+"\t");
-				_outCommunity.write(df.format(node.getAttribute("x"))+"\t");
-				_outCommunity.write(df.format(node.getAttribute("y"))+"\t");
+				_outCommunity.write(node.getAttribute("x")+"\t");
+				_outCommunity.write(node.getAttribute("y")+"\t");
 				_outCommunity.write(degree+"\t");
-//				_outCommunity.write("0"+"\t"); // neighbors
-//				_outCommunity.write(cc+"\t"); // ccid
-//				_outCommunity.write(_ccDist.communitySize(cc)+"\t"); // ccSize
+				_outCommunity.write(""+"\t"); // neighbors
+				_outCommunity.write(cc+"\t"); // ccid
+				_outCommunity.write(_ccDist.communitySize(cc)+"\t"); // ccSize
 				_outCommunity.write(communityId+"\t"); // comId
-				_outCommunity.write(df.format(score)+"\t");
+				_outCommunity.write(score+"\t");
 				_outCommunity.write(comSize+"\t"); // comSize
-				_outCommunity.write(linkId.toString()+"\t"); // linkId
-				_outCommunity.write(df.format(speed)+"\t"); // speed
-				_outCommunity.write(df.format(avgSpeed)+"\t"); // avgspeed
-				_outCommunity.write(numberOfStopsOnLane.toString()); // number of stops on lane
 				_outCommunity.write("\n"); 
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -536,123 +435,6 @@ public class Crowds {
 		_outGraph.newLine();
 	}
 
-	
-	public void setImagesGeneration(String styleSheetUrl, String prefix) throws IOException {
-		_createImages = true;
-		_styleSheetUrl = styleSheetUrl;
-		_imgPrefix = prefix;
-		
-	}
-	
-	private void initializeFsi() throws IOException {
-		OutputType type = OutputType.PNG;
-		Resolution resolution = Resolutions.HD720;
-		OutputPolicy outputPolicy = OutputPolicy.BY_STEP;
-		_fsi = new FileSinkImages(_imgPrefix, type, resolution, outputPolicy );
-		_fsi.setStyleSheet(_styleSheetUrl);
-		_fsi.setLayoutPolicy( LayoutPolicy.NO_LAYOUT);
-		_fsi.begin(_imgPrefix);
-	}
 
-//	public void WriteNode(BufferedWriter out, String separator, String separatorEdges, int step, Node node, HashMap<Marker, String> markers) throws IOException {
-//		String nodeId = node.getId();
-//		Integer module = (Integer)node.getAttribute(markers.get(Marker.MODULE));
-//		Double x = (Double)node.getAttribute(markers.get(Marker.X));
-//		Double y = (Double)node.getAttribute(markers.get(Marker.Y));
-//		Community community = (Community)node.getAttribute(markers.get(Marker.COMMUNITY));
-//		Double communityScore = (Double)node.getAttribute(markers.get(Marker.COMMUNITY_SCORE));
-//		int degree = node.getEdgeSet().size();
-//		out.write(step+separator+nodeId+separator+x+separator+y+separator+degree+separator);
-//		for (Edge edge : node.getEdgeSet()) {
-//			out.write(edge.getOpposite(node).getId()+separatorEdges);
-//		}
-//		out.write(separator+community.id()+separator+communityScore+separator+module);
-//		out.newLine();
-//	}
-	
-//	public void computeAttributesForCommunityDetection() {
-//		String xMarker = "x";
-//		String yMarker = "y";
-//		Double maxDistance = 0.0;
-//		Double sumDistance = 0.0;
-//		int edgeCount = 0;
-//		Collection<Node> neighbors = _graph.getNodeSet();
-//		for (Node node : neighbors) {
-//			String nodeId = node.getId();
-//			Double nodeX = (Double)node.getAttribute(xMarker);
-//			Double nodeY = (Double)node.getAttribute(yMarker);
-//			for (Edge edge : node.getEdgeSet()) {
-//				Node neighbor = edge.getOpposite(node);
-//				Double neighborX = (Double)neighbor.getAttribute(xMarker);
-//				Double neighborY = (Double)neighbor.getAttribute(yMarker);
-//				Double distance = calculateDistance(nodeX, nodeY, neighborX, neighborY);
-//				// calculate distance
-//				edge.setAttribute(_communityMarker, distance);
-//				sumDistance += distance;
-//				edgeCount ++;
-//				if (distance > maxDistance) {
-//					maxDistance = distance;
-//				}
-//			}
-//		}
-////		if (edgeCount > 0)
-////		System.out.println("max distance: " + maxDistance + " average distance: " + sumDistance / edgeCount);
-//	}
-//	
-//	public Double calculateDistance(Double nodeX, Double nodeY, Double neighborX, Double neighborY) {
-//		Double distance = Math.sqrt((nodeX-neighborX)*(nodeX-neighborX) + (nodeY-neighborY)*(nodeY-neighborY));
-//		return distance;
-//	}
-	
-//	public void createMovie(String filePath, String styleSheetUrl, String prefix) {
-//		// FileSinkImages
-//		OutputType type = OutputType.PNG;
-//		Resolution resolution = Resolutions.HD720;
-//		OutputPolicy outputPolicy = OutputPolicy.BY_STEP;
-//		FileSinkImages _fsi = new FileSinkImages(prefix, type, resolution, outputPolicy );
-//		String styleSheet = styleSheetUrl;
-//		_fsi.setStyleSheet(styleSheet);
-//		_fsi.setLayoutPolicy( LayoutPolicy.NO_LAYOUT);
-////		_fsi.addLogo( "path/to/logo", x, y );
-//		try {
-//			FileSourceDGS dgs = new FileSourceDGS();
-//			dgs.begin(filePath);
-//			dgs.addSink(_fsi);
-//			_fsi.begin(prefix);
-//			while ( dgs.nextStep() ) {
-//				System.out.println("next step..");
-//			}
-//			dgs.end();
-//			_fsi.end();
-//		}
-//		catch (Exception e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-//	}
-//
-//	public void display(Graph graph, String styleSheetUrl) {
-//		graph.addAttribute("ui.stylehseet", styleSheetUrl);
-//		graph.addAttribute("ui.quality");
-//		graph.addAttribute("ui.antialias");
-//		SpriteManager spriteManager = new SpriteManager(graph);
-//		Sprite spriteTime = spriteManager.addSprite("SpriteTime");
-//		spriteTime.setPosition(Units.PX, 12, 180, 0);
-//		
-//		Viewer viewer = graph.display();
-//		View view = viewer.getDefaultView();
-//		view.resizeFrame(800, 600);
-//		
-//		int i = 0;
-//		while(!graph.hasAttribute("ui.viewClosed")) {
-//			spriteTime.setAttribute("ui.label", String.format("Time %d", i++));
-//			try {
-//				viewer.wait(1000);
-//			} catch (InterruptedException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-//		}
-//	}
 	
 }

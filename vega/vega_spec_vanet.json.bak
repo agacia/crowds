@@ -1,0 +1,57 @@
+{
+  "width": 600,
+  "height": 600,
+  "data": [
+    {
+      "name": "cars",
+      "url": "",
+      "format": {"parse": {"y": "number", "x": "number", "com_id": "number"}, "type": "tsv"}
+    }
+  ],
+  "scales": [
+    {
+      "name": "x",
+      "nice": true,
+      "range": "width",
+      "domain": {"data": "cars", "field": "data.x"}
+    },
+    {
+      "name": "y",
+      "nice": true,
+      "range": "height",
+      "domain": {"data": "cars", "field": "data.y"}
+    },
+    {
+      "name": "c",
+      "type": "ordinal",
+      "domain": {"field": "data.color", "data": "cars"}
+    }, 
+    {
+      "name": "s",
+      "range": [0, 20], 
+      "domain": {"field": "data.size", "data": "nodes"}
+    }
+  ],
+  "marks": [
+    {
+      "type": "symbol",
+      "from": {"data": "cars"},
+      "properties": {
+        "enter": {
+          "x": {"scale": "x", "field": "data.x"},
+          "y": {"scale": "y", "field": "data.y"},
+          "fill": {"field": "data.color"},
+          "fillOpacity": {"value": 0.5}
+        },
+        "update": {
+          "size": {"value": 100},
+          "stroke": {"value": "transparent"}
+        },
+        "hover": {
+          "size": {"value": 300},
+          "stroke": {"value": "white"}
+        }
+      }
+    }
+  ]
+}

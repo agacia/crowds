@@ -20,15 +20,33 @@
 
 e.g:
 
+-- run algorithm
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh all 1 10 "SandSharc" mac run "/Users/agatagrzybek/workspace/crowds/output/20131205" 0 1200 "sdsd" "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh all 1 10 "SandSharc" mac run "/Users/agatagrzybek/workspace/crowds/output/20131205" 0 1200 "sdsd" "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
 --- vega
 
 -- small test
-/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh vega 1 10 "MobileLeungDSD;MobileLeungSDSD" mac run "/Users/agatagrzybek/workspace/crowds/output/14112013" 0 1200 "" "" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh run_algorithm 1 10 "Leung;EpidemicCommunityAlgorithm;MobileLeungDSD;MobileLeungSDSD;SandSharc" mac run "/Users/agatagrzybek/workspace/crowds/output/20131120" 0 1200 "sdsd" "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
+#analyse communities:
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh analyse 1 1200 "Leung" mac run "/Users/agatagrzybek/workspace/crowds/output/cluster13112013/" 0 1200 "sdsd" "" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh analyse 1 10 "MobileLeung" mac run "/Users/agatagrzybek/workspace/crowds/output/eclipse" 0 10 "sdsd" "" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
 
 
---- analyse vehicles:
--mac
-/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh analyse_vehicles 1 10 "MobileLeung" mac run "/Users/agatagrzybek/workspace/crowds/output/eclipse" 0 1200 sdsd
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh analyse_vehicles 1 1200 "Leung" mac run "/Users/agatagrzybek/workspace/crowds/output/cluster13112013/" 0 1200 "sdsd" "" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
+
+
+#analyse vehicles:
+#mac
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh analyse_vehicles 1 10 "Leung;EpidemicCommunityAlgorithm;MobileLeungDSD;MobileLeungSDSD;SandSharc" mac run "/Users/agatagrzybek/workspace/crowds/output/20131120" 0 1200 "sdsd" "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
+/Users/agatagrzybek/workspace/crowds/scripts/run_and_analyse_crowds.sh analyse_vehicles 1 10 "Leung" mac run "/Users/agatagrzybek/workspace/crowds/output/14112013" 0 1200 "sdsd" "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs" 0 0 0 2 .png /Users/agatagrzybek/workspace/crowds/vega/vega_spec_vanet.json /Users/agatagrzybek/Documents/PhD/Phd_workshop/vega/bin/vg2png
+
+
 
 -cluster
 /home/users/agrzybek/VNCBoston/crowds/scripts/run_and_analyse_crowds.sh analyse_vehicles 1 1200 "MobileLeung" cluster print "/work/users/agrzybek/VNCBoston/output/20131113" 0 1200 sdsd

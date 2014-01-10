@@ -46,68 +46,70 @@ def processLine(line):
 	global selectedStep 
 	global samplingRate 
 	global ymax
-	startstep = 820
+	startstep = -1
 	data = line.split(separator)
 	now = int(data[0])
-	# if now > 10:
-	# 	return 
+	# if len(data) != 12:
+	# 	print "Warning! Skipping wrong line {1}, {0}".format(len(data),line)
+	# 	return
+	if step >= startstep: 
+		if (now != step):
+			if step == -1:
+				globalStep += now
+			else:
+				globalStep += 1
+			step = now
+			if globalStep%samplingRate == 0:
+				print "starting writing step {0}".format(globalStep)
+				filename = outputGroupFile+add_nulls(globalStep,4)+".tsv"
+				outGroups = open(filename, 'w')
+				# input: step	node_id	x	y	degree  neighbors	cc_id	cc_size	com_id	com_score	com_size 	speed
+				outGroups.write("step\tid\tx\ty\tdegree\tcom_id\tcos_score\tcom_size\tcc_size\tmetadata\tcolor\tspeed\tnum_stops\n")
+			currentVehiclesCount = 0
 
-	if (now != step):
-		if step == -1:
-			globalStep += now
+		# add data
+		vehiclesCount += 1
+		currentVehiclesCount += 1
+		# step	node id	x	y	degree	neighbors	community id	community score	community size	connected component id
+		step = float(data[0])
+		vehicleId = str(data[1])	
+		x = float(data[2])
+		y = float(data[3])	
+		degree = float(data[4])
+		# neighbors = str(data[5]).split(separator2)
+		currentVehiclesCount += 1
+		communityId = str(data[8]).strip()
+		communityScore = 0
+		if options.type == "community":
+			communityScore = float(data[9])
+		comSize = float(data[10])
+		ccSize = float(data[7])
+		speed = float(data[12])
+		numOfStops = float(data[13])
+		# size = 30
+		if (communityId not in communities.keys()): 
+			colorIndex += 1
+			communityIndex[communityId] = colorIndex
+		if degree > 0:
+			communities[communityId] = colors[communityIndex[communityId]%len(colors)]
 		else:
-			globalStep += 1
-		step = now
+			communities[communityId] = "#707070"
+
+		# size = 10
 		if globalStep%samplingRate == 0:
-			print "starting writing step {0}".format(globalStep)
-			filename = outputGroupFile+add_nulls(globalStep,4)+".tsv"
-			outGroups = open(filename, 'w')
-			# input: step	node_id	x	y	degree	neighbors	cc_id	cc_size	com_id	com_score	com_size
-			outGroups.write("step\tid\tx\ty\tdegree\tcom_id\tcos_score\tcom_size\tcc_size\tmetadata\tcolor\n")
-		currentVehiclesCount = 0
-
-	# add data
-	vehiclesCount += 1
-	currentVehiclesCount += 1
-	# step	node id	x	y	degree	neighbors	community id	community score	community size	connected component id
-	step = float(data[0])
-	vehicleId = str(data[1])	
-	x = float(data[2])
-	y = float(data[3])	
-	degree = float(data[4])
-	# neighbors = str(data[5]).split(separator2)
-	currentVehiclesCount += 1
-	communityId = str(data[8]).strip()
-	communityScore = 0
-	if options.type == "community":
-		communityScore = float(data[9])
-	comSize = float(data[10])
-	ccSize = float(data[7])
-
-	# size = 30
-	if (communityId not in communities.keys()): 
-		colorIndex += 1
-		communityIndex[communityId] = colorIndex
-	if degree > 0:
-		communities[communityId] = colors[communityIndex[communityId]%len(colors)]
-	else:
-		communities[communityId] = "#707070"
-
-	# size = 10
-	if globalStep%samplingRate == 0:
-		metadata = "regular"
-		if  options.delta_threshold and options.delta_threshold != -1 and communityScore <= options.delta_threshold:
-			metadata = "cut"
-		if options.maxSizeCommunityId and options.maxSizeCommunityId != -1 and communityId == options.maxSizeCommunityId:
-			metadata = "maxSize"
-		if options.maxLifetimeCommunityId and options.maxLifetimeCommunityId != -1 and communityId == options.maxLifetimeCommunityId:
-			metadata = "maxLifetime"
-			
-		# y = ymax-y
-		outGroups.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\n".format(
-			step,vehicleId,x,y,degree,communityId,communityScore,comSize,ccSize,metadata,communities[communityId]))
-		# print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(vehicleId,x,y,communityId,communityScore,communities[communityId],size,metadata)
-		# print line
+			metadata = "regular"
+			if  options.delta_threshold and options.delta_threshold != -1 and communityScore <= options.delta_threshold:
+				metadata = "cut"
+			if options.maxSizeCommunityId and options.maxSizeCommunityId != -1 and communityId == options.maxSizeCommunityId:
+				metadata = "maxSize"
+			if options.maxLifetimeCommunityId and options.maxLifetimeCommunityId != -1 and communityId == options.maxLifetimeCommunityId:
+				metadata = "maxLifetime"
+				
+			# y = ymax-y
+			outGroups.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\n".format(
+				step,vehicleId,x,y,degree,communityId,communityScore,comSize,ccSize,metadata,communities[communityId],speed, numOfStops))
+			# print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(vehicleId,x,y,communityId,communityScore,communities[communityId],size,metadata)
+			# print line
 	return 0
 
 def getIndexes(line):

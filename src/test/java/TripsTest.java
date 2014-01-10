@@ -11,17 +11,12 @@ import org.graphstream.algorithm.community.MobileMarker;
 
 import main.java.Crowds;
 
-public class CrowdsTest {
-
-//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs";
-//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/manhattan/p_05/vanet_200.dgs";
-//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/cross3ltl/vanet.dgs";
-//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long/vanet.dgs";
-	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/dgs_probeData_v8-20_avg.dgs"; 
-	 
+public class TripsTest {
+	
+	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/Luxembourg_6-8/fcd2vanet/graph_10s.dgs";
 	private static String sep = "\t";
 	private static String sep2 = ",";
-	private static String communityFileDataFormat = "step"+sep+"node_id"+sep+"x"+sep+"y"+sep+"degree"+sep+"com_id"+sep+"com_score"+sep+"com_size"+sep+"link_id"+sep+"speed"+sep+"avg_speed"+sep+"num_stops";
+	private static String communityFileDataFormat = "step"+sep+"node_id"+sep+"x"+sep+"y"+sep+"degree"+sep+"neighbors"+sep+"cc_id"+sep+"cc_size"+sep+"com_id"+sep+"com_score"+sep+"com_size";
 	private static String graphFileDataFormat = "step"+sep+"nodes"+sep+"edges"+sep+"singletons"+sep+"connected"+sep+"avg_degree"+sep+"degree_distribution"+sep+"diameter"+sep+"avg_clustering_coefficient"+sep+"cc_count"+sep+"avg_cc_size"+sep+"max_cc_size"+sep+"max_cc_id"+sep+"cc_std_dev"+sep+"com_count"+sep+"avg_com_size"+sep+"max_com_size"+sep+"max_com_id"+sep+"min_com_size"+sep+"min_com_id"+sep+"std_com_dist"+sep+"size_distribution"+sep+"modularity"+sep+"com_modularity"+sep+"iterations"+sep+"iteration_modularities";
 	private static String communityOutputFile;
 	private static String graphOutputFile;
@@ -38,7 +33,7 @@ public class CrowdsTest {
 	private static String outputDir = "/Users/agatagrzybek/workspace/crowds/output/eclipse/";
 //	private static String algorithm = "EpidemicCommunityAlgorithm";
 //	private static String algorithm = "Leung";
-//	private static String algorithm = "MobileLeung";
+	private static String algorithm = "MobileLeung";
 	private static String[] mobilityMarkers = null;
 	private static String mobilityMetric = "sDSD";
 	private static String goal = "communities";
@@ -47,10 +42,6 @@ public class CrowdsTest {
 //	private static String algorithm = "DynSharc";
 //	private static String algorithm = "NewSawSharc";
 //	private static String algorithm = "SandSharc";
-	private static String algorithm = "MobileSandSharc";
-//	private static String algorithm = "Crowdz";
-	private static String congestion = "CongestionCrowdz";
-	
 	
 	/**
 	 * @param args
@@ -59,32 +50,27 @@ public class CrowdsTest {
 		readArgs(args);
 		
 		HashMap<MobileMarker, String> markers = initializeMarkers();
-
-		Crowds crowds = new Crowds();	
-//		try {
-//			crowds.setImagesGeneration(styleSheetUrl, img_prefix);
-//		}
-//		catch (IOException e) {
-//			
-//		}
+		
+		Crowds crowds = new Crowds();		
 		crowds.set_goal(goal);
 		crowds.readGraph(filePath);
 		crowds.setRunningSteps(startStep, endStep);
 		crowds.initializeConnectedComponents(markers.get(MobileMarker.MODULE));
 		BufferedWriter outAlgorithm = null;
-		// MobileLeung
-		if (algorithm.contains("MobileLeung")) {
-			mobilityMetric = algorithm.toLowerCase().endsWith("sdsd") ? "sdsd" : "dsd";
-			algorithm = "MobileLeung";
-		}
-				
+		
 		Dictionary<String, Object> params = new Hashtable<String, Object>();
 		if (algorithm.equals("Leung")) {
 			params.put("m", mParameter);
 			params.put("delta", deltaParameter);
 			params.put("weightMarker", markers.get(MobileMarker.WEIGHT));
 		}
-		else if (algorithm.equals("MobileLeung")) {	
+		// MobileLeung
+		if (algorithm.contains("MobileLeung")) {
+			mobilityMetric = algorithm.toLowerCase().endsWith("sdsd") ? "sdsd" : "dsd";
+			algorithm = "MobileLeung";
+		}
+		if (algorithm.equals("MobileLeung")) {
+			
 			try {
 				outAlgorithm = new BufferedWriter(new FileWriter(algorithmOutputFile));
 			} catch (IOException e) {
@@ -95,30 +81,13 @@ public class CrowdsTest {
 			params.put("m", 0.1);
 			params.put("delta", 0.05);
 			params.put("mobilityMetric", mobilityMetric);
-			params.put("outLog", outAlgorithm);	
+			params.put("outLog", outAlgorithm);
+			
 		}
-		else if (algorithm.equals("Crowdz") || algorithm.equals("MobileSandSharc")) {	
-			params.put("weightMarker", "");
-			params.put("speedMarker", markers.get(MobileMarker.SPEED));
-			params.put("angleMarker", markers.get(MobileMarker.ANGLE));
-		}
-		else {
-			params.put("weightMarker", "");
-		}
-		
-		Dictionary<String, Object> congestionParams = new Hashtable<String, Object>();
-		if (congestion.equals("CongestionCrowdz")) {	
-			congestionParams.put("weightMarker", "");
-			congestionParams.put("speedMarker", markers.get(MobileMarker.SPEED));
-			congestionParams.put("avgSpeedMarker", markers.get(MobileMarker.AVG_SPEED));
-			congestionParams.put("laneMarker", markers.get(MobileMarker.LANE));
-			congestionParams.put("posMarker", markers.get(MobileMarker.POS));
-		}
-		
 		String[] printOutMarkers = { markers.get(MobileMarker.X), markers.get(MobileMarker.Y) };
 		crowds.set_printOutMarkers(printOutMarkers);
 		crowds.openOutputFiles(communityOutputFile, communityFileDataFormat, graphOutputFile, graphFileDataFormat, sep, sep2);
-		crowds.detectCommunities(algorithm, markers.get(MobileMarker.COMMUNITY), params, congestion, markers.get(MobileMarker.CONGESTION), congestionParams);
+		crowds.detectCommunities(algorithm, markers.get(MobileMarker.COMMUNITY), params);
 		if (algorithm.equals("MobileLeung")) {
 			try {
 				outAlgorithm.close();
@@ -135,10 +104,8 @@ public class CrowdsTest {
 		markers.put(MobileMarker.WEIGHT, "weight");
 		markers.put(MobileMarker.COMMUNITY, "community");
 		markers.put(MobileMarker.COMMUNITY_SCORE, markers.get(MobileMarker.COMMUNITY)+".score");
-		markers.put(MobileMarker.CONGESTION, "congestion");
 		markers.put(MobileMarker.MODULE, "module");
 		markers.put(MobileMarker.SPEED, "vehicleSpeed");
-		markers.put(MobileMarker.AVG_SPEED, "vehicleAvgSpeed");
 		markers.put(MobileMarker.LANE, "vehicleLane");
 		markers.put(MobileMarker.ANGLE, "vehicleAngle");
 		markers.put(MobileMarker.SLOPE, "vehicleSlope");
@@ -175,9 +142,6 @@ public class CrowdsTest {
 				if (argName.equals("--algorithm")) {
 					algorithm = argValue.trim();
 				}
-				if (argName.equals("--congestion")) {
-					congestion = argValue.trim();
-				}
 				if (argName.equals("--mobilityMetric")) {
 					mobilityMetric = argValue.trim();
 				}
@@ -190,21 +154,16 @@ public class CrowdsTest {
 		graphOutputFile = outputDir + "graph.txt";
 		algorithmOutputFile = outputDir + "algorithm.csv";
 		styleSheetUrl = "url('file:////"+dir+"/"+styleSheetUrl+"')";
-		img_prefix = outputDir+_prefix;
+		img_prefix = dir+outputDir+_prefix;
 
 		System.out.println("CROWDS STARTED --------------");
-		System.out.println("SandSharc without mobility!");
 		System.out.println("Crowds parameters:");
 		System.out.println("filePath\t" + filePath);
 		System.out.println("dir\t" + dir);
-		System.out.println("styleSheetUrl\t" + styleSheetUrl);
-		System.out.println("img_prefix\t" + img_prefix);
 		System.out.println("communityOutputFile\t" + communityOutputFile);
 		System.out.println("graphOutputFile\t" + graphOutputFile);
 		System.out.println("algorithmOutputFile\t" + algorithmOutputFile);
 		System.out.println("goal\t" + goal);
-		
-		
 		
 	}
 	

@@ -1,0 +1,39 @@
+{"height": 600, "width": 600, 
+"scales": 
+[
+{"range": "width", "name": "x", "domain": {"field": "data.x", "data": "cars"}, "nice": true},
+ {"range": "height", "name": "y", "domain": {"field": "data.y", "data": "cars"}, "nice": true}, 
+ {"domain": {"field": "data.color", "data": "cars"}, "type": "ordinal", "name": "c"}, 
+ {"range": ["red", "green"], "domain": {"field": "data.speed", "data": "cars"}, "name": "speed"}, 
+ {"range": ["green", "red"], "domain": {"field": "data.num_stops", "data": "cars"}, "name": "stops"}, 
+ {"range": [10, 20], "domain": {"field": "data.degree", "data": "cars"}, "name": "density"}, 
+ {"range": [0, 20], "name": "s", "domain": {"field": "data.size", "data": "nodes"}}
+ ], 
+
+ "data": [
+ {
+ 	"url": "groups_0110.tsv", 
+ 	"name": "cars", 
+ 	"format": {"parse": {"y": "number", "x": "number", "com_id": "number"}, "type": "tsv"}
+ },
+ {
+ 	"source": "groups_0110.tsv", 
+ 	"name": "congestions", 
+ 	"format": {"parse": {"y": "number", "x": "number", "com_id": "number"}, "type": "tsv"},
+ 	"transform": [ {"type": "filter", "test": "d.data.num_stops > 1"}]
+ }], 
+ "marks": [
+ {"type": "symbol", "from": {"data": "congestions"}, 
+ "properties": {
+ "update": {
+ 	"stroke": {"value": "transparent"}, 
+ 	"fill": {"field": "data.speed", "scale":"speed"},
+ 	"size": {"field": "data.degree", "scale":"density"}
+ }, 
+ "enter": {
+ 	"y": {"field": "data.y", "scale": "y"}, 
+ 	"x": {"field": "data.x", "scale": "x"}, 
+ 	"fillOpacity": {"value": 0.5}, 
+ 	"fill": {"field": "data.color"}}
+ }}
+ ]}

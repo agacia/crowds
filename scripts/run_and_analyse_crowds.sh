@@ -32,8 +32,11 @@ COMMUNITY_FILE="communities.csv"
 COMMUNITY_ANALYSIS_FILE="analysis_community_sum.txt"
 VEHICLE_ANALYSIS_FILE="analysis_vehicles_sum.txt"
 SIZE_ANALYSIS_FILE="analysis_size_sum.txt"
+AVG_ANALYSIS_FILE="analysis_sum.txt"
+ANALYSIS_FILE="analysis.txt"
 NUM_RUNS=2;
 AVG_GRAPH_FILES=""
+AVG_ANALYSIS_FILES=""
 ALGS="Leung;MobileLeung"
 MOBILITY_METRICS="distance"
 DO_RUN=print;
@@ -55,9 +58,11 @@ if [ $5 ]; then ENV=$5; fi
 echo "# ENVIRONMENT "$ENV 
 
 if [ $ENV = "cluster" ]; then
-
 	# module display matplotlib/1.2.1-goolf-1.4.10-Python-2.7.3
 	# /opt/apps/HPCBIOS/modules/vis/matplotlib/1.2.1-goolf-1.4.10-Python-2.7.3
+	# echo "loading module module load pandas/0.11.0-ictce-5.3.0-Python-2.7.3"
+	# module load pandas/0.11.0-ictce-5.3.0-Python-2.7.3
+	# module load scipy/0.11.0-goolf-1.4.10-Python-2.7.3
 	# module load matplotlib/1.2.1-goolf-1.4.10-Python-2.7.3
 	CROWDS_PROG="/home/users/agrzybek/VNCBoston/crowds/crowds.jar"
 	DGS_PATH="/work/users/agrzybek/VNCBoston/data/fcd_0-30_full.dgs"
@@ -66,6 +71,9 @@ if [ $ENV = "cluster" ]; then
 	ANALYSE_SCRIPT="/home/users/agrzybek/VNCBoston/crowds/python/analyse_crowds.py"
 	GETGROUPS_SCRIPT="/home/users/agrzybek/VNCBoston/crowds/python/vegaGetGroups.py"
 	GENIMGS_SCRIPT="/home/users/agrzybek/VNCBoston/crowds/python/vegaGenerateImgs.py"
+	VEGA_PATH="/home/users/agrzybek/VNCBoston/crowds/vega/vg2png"
+	VEGA_PATH_SVG="/home/users/agrzybek/VNCBoston/crowds/vega/vg2svg"
+	VEGA_SPEC="/home/users/agrzybek/VNCBoston/crowds/vega/vega_spec_vanet.json"
 	START_STEP=0
 	END_STEP=1200;
 fi
@@ -123,6 +131,8 @@ echo "# VEGA_SPEC "$VEGA_SPEC
 if [ $# -gt 17 -a $18 ]; then VEGA_PATH="${18}"; fi
 echo "# VEGA_PATH "$VEGA_PATH
 
+if [ $# -gt 18 -a $19 ]; then CROWDS_PROG="${19}"; fi
+echo "# CROWDS_PROG "$CROWDS_PROG
 
 
 # for each algorithm
@@ -162,14 +172,6 @@ for ALGO in $ALGS; do
 		GRAPH_FILES="${GRAPH_FILES}${OUTPUT}graph.txt "
 		
 		if [ "$CMD" = "run_algorithm"  -o "$CMD" = "all" ]; then
-			if [ "$ALGO" = "MobileLeungDSD" ]; then
-				ALGO="MobileLeung"
-				MOBILITY_METRICS="dsd"
-			fi
-			if [ "$ALGO" = "MobileLeungSDSD" ]; then
-				ALGO="MobileLeung"
-				MOBILITY_METRICS="sdsd"
-			fi
 			if [ "$MOBILITY_METRICS" = "" ]; then
 				MOBILITY_METRICS="distance"
 			fi
@@ -224,6 +226,20 @@ for ALGO in $ALGS; do
 			if [ "$DO_RUN" = "run" -a  $CMD = "calculate_avg_community_sum" ]; then 
 				python ${PLOT_SCRIPT} --indexStart "${INDEX_START}" --indexStop "${INDEX_STOP}" --title "${TITLE}" --inputFiles "${AVG_COMMUNITY_ANALYSIS_FILES}" --labels "${ITER_LABELS}" --outputDir "${OUTPUT_ALG}" --columns "${COLUMNS}" --type average --filename "${COMMUNITY_ANALYSIS_FILE}"; fi
 		fi
+	fi
+
+	if [ $CMD = "analyse" -o "$CMD" = "all" ]; then
+		TYPE="all"
+		echo "# Analysis of communities.csv for each iteration..."
+		for i in `seq 1 ${NUM_RUNS}`; do
+			OUTPUT_COM=$OUTPUT_DIR"/"$i"/"$ALGO
+			AVG_ANALYSIS_FILES=$AVG_ANALYSIS_FILES$OUTPUT_COM"/"$ANALYSIS_FILE" "
+			if [ $CMD = "analyse"  -o "$CMD" = "all" ]; then
+				echo
+				echo "python ${ANALYSE_SCRIPT} --inputFile \"${OUTPUT_COM}/${COMMUNITY_FILE}\" --outputDir \"${OUTPUT_COM}/\" --type ${TYPE}"
+				if [ "$DO_RUN" = "run" ]; then  python $ANALYSE_SCRIPT --inputFile $OUTPUT_COM"/"$COMMUNITY_FILE  --outputDir "${OUTPUT_COM}/" --type $TYPE; fi
+			fi		
+		done
 	fi
 
 	if [ $CMD = "analyse_vehicles" -o $CMD = "calculate_avg_vehicle_sum"  -o "$CMD" = "all" ]; then
