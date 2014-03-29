@@ -17,12 +17,20 @@ public class CrowdsTest {
 //	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/manhattan/p_05/vanet_200.dgs";
 //	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/cross3ltl/vanet.dgs";
 //	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long/vanet.dgs";
-	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/dgs_probeData_v8-20_avg.dgs"; 
-	 
+//	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/dgs_probeData_v8-20_avg.dgs"; 
+//	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/probeData_v15-30_avg_direction_clean.dgs"; 
+//	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/probeData_v15-30_avg_test.dgs"; 
+//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long/vanet.dgs";
+//	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/probeData_v15-30_avg_direction_clean_200.dgs";
+//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long_120kmph_600/vanet.dgs";
+//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long_120kmph_600_speed/vanet.dgs";
+//	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long_120kmph_600_speed/vanet_avgspeed_direction.dgs";
+	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/vanet_probeData_v15-30+200_17032014.dgs";
+	
 	private static String sep = "\t";
 	private static String sep2 = ",";
-	private static String communityFileDataFormat = "step"+sep+"node_id"+sep+"x"+sep+"y"+sep+"degree"+sep+"com_id"+sep+"com_score"+sep+"com_size"+sep+"link_id"+sep+"speed"+sep+"avg_speed"+sep+"num_stops";
-	private static String graphFileDataFormat = "step"+sep+"nodes"+sep+"edges"+sep+"singletons"+sep+"connected"+sep+"avg_degree"+sep+"degree_distribution"+sep+"diameter"+sep+"avg_clustering_coefficient"+sep+"cc_count"+sep+"avg_cc_size"+sep+"max_cc_size"+sep+"max_cc_id"+sep+"cc_std_dev"+sep+"com_count"+sep+"avg_com_size"+sep+"max_com_size"+sep+"max_com_id"+sep+"min_com_size"+sep+"min_com_id"+sep+"std_com_dist"+sep+"size_distribution"+sep+"modularity"+sep+"com_modularity"+sep+"iterations"+sep+"iteration_modularities";
+	private static String communityFileDataFormat = "step"+sep+"node_id"+sep+"x"+sep+"y"+sep+"degree"+sep+"com_id"+sep+"com_score"+sep+"com_size"+sep+"link_id"+sep+"speed"+sep+"avg_speed"+sep+"num_stops"+sep+"is_originator"+sep+"dynamism"+sep+"timeMeanSpeed"+sep+"maxHistoryRecords"+sep+"timeMeanSpeed.count";
+	private static String graphFileDataFormat = "step"+sep+"nodes"+sep+"edges"+sep+"singletons"+sep+"connected"+sep+"avg_degree"+sep+"degree_distribution"+sep+"diameter"+sep+"avg_clustering_coefficient"+sep+"cc_count"+sep+"avg_cc_size"+sep+"max_cc_size"+sep+"max_cc_id"+sep+"cc_std_dev"+sep+"com_count"+sep+"avg_com_size"+sep+"max_com_size"+sep+"max_com_id"+sep+"min_com_size"+sep+"min_com_id"+sep+"std_com_dist"+sep+"size_distribution"+sep+"modularity"+sep+"com_modularity"+sep+"iterations"+sep+"iteration_modularities"+sep+"weighted_com_modularity"+sep+"speed_avg"+sep+"speed_std"+sep+"speed_avg_std"+sep+"avgSpeed_avg"+sep+"avgSpeed_std"+sep+"avgSpeed_avg_std";
 	private static String communityOutputFile;
 	private static String graphOutputFile;
 	private static String algorithmOutputFile;
@@ -31,7 +39,7 @@ public class CrowdsTest {
 	private static double deltaParameter = 0.05;
 	private static int numberOfIterations = 1;
 	private static int startStep = 0;
-	private static int endStep = 10;
+	private static int endStep = 100;
 	private static String styleSheetUrl = "css/stylesheet.css";
 	private static String _prefix = "img";
 	private static String img_prefix;
@@ -49,7 +57,12 @@ public class CrowdsTest {
 //	private static String algorithm = "SandSharc";
 	private static String algorithm = "MobileSandSharc";
 //	private static String algorithm = "Crowdz";
-	private static String congestion = "CongestionCrowdz";
+	private static String congestion = "CongestionMeasure";
+	private static Double mobilityWeight = 0.5;
+	private static Double mobilitySimilarityThreshold = 0.5; // 0 means no threshold
+	private static Double maxSpeed = 50.0; // 0 means no threshold
+//	private static Double congestionSpeedThreshold = 25.0; // freeways
+	private static Double congestionSpeedThreshold = 11.0; // urban
 	
 	
 	/**
@@ -97,22 +110,34 @@ public class CrowdsTest {
 			params.put("mobilityMetric", mobilityMetric);
 			params.put("outLog", outAlgorithm);	
 		}
-		else if (algorithm.equals("Crowdz") || algorithm.equals("MobileSandSharc")) {	
+		else if (algorithm.equals("Crowdz") || algorithm.equals("MobileSandSharc") || algorithm.equals("MobileSharc")) {	
 			params.put("weightMarker", "");
 			params.put("speedMarker", markers.get(MobileMarker.SPEED));
+			params.put("avgSpeedMarker", markers.get(MobileMarker.AVG_SPEED));
 			params.put("angleMarker", markers.get(MobileMarker.ANGLE));
+			params.put("dynamismMarker", markers.get(MobileMarker.DYNAMISM));
+			params.put("timeMeanSpeedMarker", markers.get(MobileMarker.TIMEMEANSPEED));
+			
+			if (algorithm.equals("MobileSandSharc") || algorithm.equals("MobileSharc")) {
+				params.put("weightMarker", markers.get(MobileMarker.WEIGHT));
+				params.put("mobilityWeight", mobilityWeight);
+				params.put("mobilitySimilarityThreshold", mobilitySimilarityThreshold);
+				params.put("maxSpeed", maxSpeed);
+				params.put("congestionSpeedThreshold", congestionSpeedThreshold);
+			}
 		}
 		else {
 			params.put("weightMarker", "");
 		}
 		
 		Dictionary<String, Object> congestionParams = new Hashtable<String, Object>();
-		if (congestion.equals("CongestionCrowdz")) {	
+		if (congestion.equals("CongestionCrowdz") || congestion.equals("CongestionMeasure")) {	
 			congestionParams.put("weightMarker", "");
 			congestionParams.put("speedMarker", markers.get(MobileMarker.SPEED));
 			congestionParams.put("avgSpeedMarker", markers.get(MobileMarker.AVG_SPEED));
 			congestionParams.put("laneMarker", markers.get(MobileMarker.LANE));
 			congestionParams.put("posMarker", markers.get(MobileMarker.POS));
+			congestionParams.put("dynamismMarker", markers.get(MobileMarker.DYNAMISM));
 		}
 		
 		String[] printOutMarkers = { markers.get(MobileMarker.X), markers.get(MobileMarker.Y) };
@@ -144,6 +169,9 @@ public class CrowdsTest {
 		markers.put(MobileMarker.SLOPE, "vehicleSlope");
 		markers.put(MobileMarker.POS, "vehiclePos");
 		markers.put(MobileMarker.DISTANCE, "distance");
+		markers.put(MobileMarker.DYNAMISM, "dynamism");
+		markers.put(MobileMarker.TIMEMEANSPEED, "timeMeanSpeed");
+		
 		return markers;
 	}
 
@@ -184,6 +212,17 @@ public class CrowdsTest {
 				if (argName.equals("--goal")) {
 					goal = argValue.trim();
 				}
+				if (argName.equals("--mobilityWeight")) {
+					// todo undo when tested
+//					mobilityWeight = Double.parseDouble(argValue);
+					mobilitySimilarityThreshold = Double.parseDouble(argValue);
+//					maxSpeed = Double.parseDouble(argValue);
+					congestionSpeedThreshold = Double.parseDouble(argValue);
+//					
+				}
+				if (argName.equals("--mobilitySimilarityThreshold")) {
+					mobilitySimilarityThreshold = Double.parseDouble(argValue);
+				}
 			}
 		}
 		communityOutputFile = outputDir + "communities.csv";
@@ -193,7 +232,8 @@ public class CrowdsTest {
 		img_prefix = outputDir+_prefix;
 
 		System.out.println("CROWDS STARTED --------------");
-		System.out.println("SandSharc without mobility!");
+		System.out.println("speed thres " + congestionSpeedThreshold);
+		System.out.println("Meantime 90 ");
 		System.out.println("Crowds parameters:");
 		System.out.println("filePath\t" + filePath);
 		System.out.println("dir\t" + dir);

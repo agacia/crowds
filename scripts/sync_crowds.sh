@@ -9,22 +9,30 @@ rsync -avzu /Users/agatagrzybek/workspace/fcd2vanet/scripts/* gaia-cluster:/home
 
 # crowds
 # bin
-rsync  -avzu /Users/agatagrzybek/workspace/crowds/crowds.jar  gaia-cluster:VNCBoston/crowds/crowds-instant.jar
+rsync  -avzu /Users/agatagrzybek/workspace/crowds/crowds-*.jar  gaia-cluster:VNCBoston/crowds/
+
+
 # scripts
 rsync -avzu /Users/agatagrzybek/workspace/crowds/scripts/* gaia-cluster:/home/users/agrzybek/VNCBoston/crowds/scripts/
+
 # python
 rsync -avzu /Users/agatagrzybek/workspace/crowds/python/* gaia-cluster:/home/users/agrzybek/VNCBoston/crowds/python/
 
 rsync -avzu /Users/agatagrzybek/workspace/crowds/vega/* gaia-cluster:/home/users/agrzybek/VNCBoston/crowds/vega/
 
  
-# output 
+# input 
+scp /Users/agatagrzybek/workspace/Jean/Agata/probeData_v15-30_avg_direction_clean_300.dgs gaia-cluster:/work/users/agrzybek/congestion/data/
+#rsync -avzu  /Users/agatagrzybek/workspace/Jean/Agata/dgs_probeData_v8-20_avg.dgs gaia-cluster:/work/users/agrzybek/congestion/data/
+scp /Users/agatagrzybek/workspace/Jean/Agata/vanet_probeData_v15-30+300_17032014.dgs gaia-cluster:/work/users/agrzybek/congestion/data/
+# output
 
-rsync -avzu  /Users/agatagrzybek/workspace/Jean/Agata/dgs_probeData_v8-20_avg.dgs gaia-cluster:/work/users/agrzybek/congestion/data/
+mkdir 20022014
+mv OAR* 
+mv only_dsd_* 20022014
 
-rsync -avzu gaia-cluster:/work/users/agrzybek/congestion/output/8-20_avg /Users/agatagrzybek/workspace/crowds/output/Jean/cluster/
-rsync -avzu gaia-cluster:/work/users/agrzybek/congestion/output/8-20_instant /Users/agatagrzybek/workspace/crowds/output/Jean/cluster/ 
-rsync -avzu gaia-cluster:/work/users/agrzybek/congestion/output/8-20_no_mob /Users/agatagrzybek/workspace/crowds/output/Jean/cluster/
+rsync -avzu gaia-cluster:/work/users/agrzybek/congestion/output/26032014 /Users/agatagrzybek/workspace/crowds/output/Jean/cluster
+
 
 # Lux
 

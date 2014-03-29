@@ -39,8 +39,8 @@ AVG_GRAPH_FILES=""
 AVG_ANALYSIS_FILES=""
 ALGS="Leung;MobileLeung"
 MOBILITY_METRICS="distance"
-DO_RUN=print;
-SCORE_THR=-1;
+DO_RUN="print"
+SCORE_THR=-1
 MAX_SIZE_ID=-1;
 MAX_LIFE_ID=-1;
 SAMPLING_RATE=10;
@@ -134,6 +134,9 @@ echo "# VEGA_PATH "$VEGA_PATH
 if [ $# -gt 18 -a $19 ]; then CROWDS_PROG="${19}"; fi
 echo "# CROWDS_PROG "$CROWDS_PROG
 
+if [ $# -gt 19 -a $20 ]; then MOB_WEIGHT="${20}"; fi
+echo "# MOB_WEIGHT "$MOB_WEIGHT
+
 
 # for each algorithm
 # for i in `seq 1 ${NUM_ALGS}`; do
@@ -176,18 +179,18 @@ for ALGO in $ALGS; do
 				MOBILITY_METRICS="distance"
 			fi
 			if [ "$DO_RUN" = "run" -a $ENV = "mac" ]; then 
-				java -Xmx4096m -jar $CROWDS_PROG --inputFile "${DGS_PATH}" --outputDir $OUTPUT --delta $DELTA --numberOfIterations $NUM_ITER --startStep $START_STEP --endStep $END_STEP --algorithm $ALGO --mobilityMetrics $MOBILITY_METRICS > $LOG_PATH; 
+				java -Xmx4096m -jar $CROWDS_PROG --inputFile "${DGS_PATH}" --outputDir $OUTPUT --delta $DELTA --numberOfIterations $NUM_ITER --startStep $START_STEP --endStep $END_STEP --algorithm $ALGO --mobilityMetrics $MOBILITY_METRICS --mobilityWeight ${MOB_WEIGHT} > $LOG_PATH; 
 				echo
-				echo "java -Xmx4096m -jar $CROWDS_PROG --inputFile \"$DGS_PATH\" --outputDir ${OUTPUT} --delta ${DELTA} --numberOfIterations ${NUM_ITER} --startStep ${START_STEP} --endStep ${END_STEP} --algorithm ${ALGO} --mobilityMetrics $MOBILITY_METRICS > ${LOG_PATH}"
+				echo "java -Xmx4096m -jar $CROWDS_PROG --inputFile \"$DGS_PATH\" --outputDir ${OUTPUT} --delta ${DELTA} --numberOfIterations ${NUM_ITER} --startStep ${START_STEP} --endStep ${END_STEP} --algorithm ${ALGO} --mobilityMetrics $MOBILITY_METRICS --mobilityWeight ${MOB_WEIGHT} > ${LOG_PATH}"
 			fi 
 			if [ "$DO_RUN" = "run" -a $ENV = "cluster" ]; then 
-				java -Xmx4096m -jar "$CROWDS_PROG" --inputFile "${DGS_PATH}" --outputDir $OUTPUT --delta $DELTA --numberOfIterations $NUM_ITER --startStep $START_STEP --endStep $END_STEP --algorithm $ALGO --mobilityMetrics $MOBILITY_METRICS; 
+				java -Xmx4096m -jar "$CROWDS_PROG" --inputFile "${DGS_PATH}" --outputDir $OUTPUT --delta $DELTA --numberOfIterations $NUM_ITER --startStep $START_STEP --endStep $END_STEP --algorithm $ALGO --mobilityMetrics $MOBILITY_METRICS --mobilityWeight ${MOB_WEIGHT}; 
 				echo
-				echo "oarsub -t besteffort -t idempotent -l nodes=1/cpu=1/core=4,walltime=24:00:0 'java -Xmx4096m -jar $CROWDS_PROG --inputFile \"$DGS_PATH\" --outputDir ${OUTPUT} --delta ${DELTA} --numberOfIterations ${NUM_ITER} --startStep ${START_STEP} --endStep ${END_STEP} --algorithm $ALGO --mobilityMetrics $MOBILITY_METRICS'"
+				echo "oarsub -t besteffort -t idempotent -l nodes=1/cpu=1/core=4,walltime=24:00:0 'java -Xmx4096m -jar $CROWDS_PROG --inputFile \"$DGS_PATH\" --outputDir ${OUTPUT} --delta ${DELTA} --numberOfIterations ${NUM_ITER} --startStep ${START_STEP} --endStep ${END_STEP} --algorithm $ALGO --mobilityMetrics $MOBILITY_METRICS  --mobilityWeight ${MOB_WEIGHT}'"
 			fi 
 			if [ "$DO_RUN" = "print" ]; then
 				echo
-				echo "java -Xmx4096m -jar $CROWDS_PROG --inputFile \"$DGS_PATH\" --outputDir ${OUTPUT} --delta ${DELTA} --numberOfIterations ${NUM_ITER} --startStep ${START_STEP} --endStep ${END_STEP} --algorithm ${ALGO} --mobilityMetrics $MOBILITY_METRICS > ${LOG_PATH}"
+				echo "java -Xmx4096m -jar $CROWDS_PROG --inputFile \"$DGS_PATH\" --outputDir ${OUTPUT} --delta ${DELTA} --numberOfIterations ${NUM_ITER} --startStep ${START_STEP} --endStep ${END_STEP} --algorithm ${ALGO} --mobilityMetrics $MOBILITY_METRICS --mobilityWeight ${MOB_WEIGHT} > ${LOG_PATH}"
 			fi
 		fi
 	done		
@@ -235,6 +238,38 @@ for ALGO in $ALGS; do
 			OUTPUT_COM=$OUTPUT_DIR"/"$i"/"$ALGO
 			AVG_ANALYSIS_FILES=$AVG_ANALYSIS_FILES$OUTPUT_COM"/"$ANALYSIS_FILE" "
 			if [ $CMD = "analyse"  -o "$CMD" = "all" ]; then
+				echo
+				echo "python ${ANALYSE_SCRIPT} --inputFile \"${OUTPUT_COM}/${COMMUNITY_FILE}\" --outputDir \"${OUTPUT_COM}/\" --type ${TYPE}"
+				if [ "$DO_RUN" = "run" ]; then  python $ANALYSE_SCRIPT --inputFile $OUTPUT_COM"/"$COMMUNITY_FILE  --outputDir "${OUTPUT_COM}/" --type $TYPE; fi
+			fi		
+		done
+	fi
+
+	if [ $CMD = "compare_steps" -o "$CMD" = "all" ]; then
+		TYPE="compare_runs"
+		echo "# Compare analysis.."
+		echo
+		echo "python ${ANALYSE_SCRIPT} --inputDir \"${OUTPUT_DIR}/\" --type ${TYPE}"
+		if [ "$DO_RUN" = "run" ]; then  python $ANALYSE_SCRIPT --inputDir "${OUTPUT_DIR}/" --type $TYPE; fi
+	
+		# for i in `seq 1 ${NUM_RUNS}`; do
+		# 	OUTPUT_COM=$OUTPUT_DIR"/"$i"/"$ALGO
+		# 	AVG_ANALYSIS_FILES=$AVG_ANALYSIS_FILES$OUTPUT_COM"/"$ANALYSIS_FILE" "
+		# 	if [ $CMD = "compare_steps"  -o "$CMD" = "all" ]; then
+		# 		echo
+		# 		echo "python ${ANALYSE_SCRIPT} --inputDir \"${OUTPUT_DIR}/\" --type ${TYPE}"
+		# 		if [ "$DO_RUN" = "run" ]; then  python $ANALYSE_SCRIPT --inputDir "${OUTPUT_COM}/" --type $TYPE; fi
+		# 	fi		
+		# done
+	fi
+
+	if [ $CMD = "analyse_veh_pandas" ]; then
+		TYPE="vehicles"
+		echo "# Analysis of  vehicles from communities.csv for each iteration..."
+		for i in `seq 1 ${NUM_RUNS}`; do
+			OUTPUT_COM=$OUTPUT_DIR"/"$i"/"$ALGO
+			AVG_ANALYSIS_FILES=$AVG_ANALYSIS_FILES$OUTPUT_COM"/"$ANALYSIS_FILE" "
+			if [ $CMD = "analyse_veh_pandas" ]; then
 				echo
 				echo "python ${ANALYSE_SCRIPT} --inputFile \"${OUTPUT_COM}/${COMMUNITY_FILE}\" --outputDir \"${OUTPUT_COM}/\" --type ${TYPE}"
 				if [ "$DO_RUN" = "run" ]; then  python $ANALYSE_SCRIPT --inputFile $OUTPUT_COM"/"$COMMUNITY_FILE  --outputDir "${OUTPUT_COM}/" --type $TYPE; fi

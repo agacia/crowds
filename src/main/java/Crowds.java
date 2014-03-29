@@ -21,10 +21,12 @@ import org.graphstream.algorithm.ConnectedComponents;
 import org.graphstream.algorithm.Toolkit;
 import org.graphstream.algorithm.community.Community;
 import org.graphstream.algorithm.community.DecentralizedCommunityAlgorithm;
+import org.graphstream.algorithm.community.CongestionMeasure;
 import org.graphstream.algorithm.community.EpidemicCommunityAlgorithm;
 import org.graphstream.algorithm.community.Leung;
 import org.graphstream.algorithm.community.MobileLeung;
 import org.graphstream.algorithm.measure.CommunityDistribution;
+import org.graphstream.algorithm.measure.MobileCommunityMeasure;
 import org.graphstream.algorithm.measure.Modularity;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.ElementNotFoundException;
@@ -64,7 +66,7 @@ public class Crowds {
 	private CommunityDistribution _ccDist;
 	private Modularity _modularity;
 	private DecentralizedCommunityAlgorithm _algorithm;
-	private DecentralizedCommunityAlgorithm _congestionAlgorithm;
+	private CongestionMeasure _congestionAlgorithm;
 	private int _startStep;
 	int _stopStep;
 	int _numberOfIterations;
@@ -82,7 +84,10 @@ public class Crowds {
 	String _sep2;
 //	Dictionary<String, Integer> _communities;
 	CommunityDistribution _comDist;
+	MobileCommunityMeasure _mobCom;
+	MobileCommunityMeasure _mobCom2;
 	String _goal = "communities";
+	String numberOfStopsMarker = "vehicleLane.stops";
 	
 	public Crowds() {
 		_numberOfIterations = 1;
@@ -200,7 +205,7 @@ public class Crowds {
 		if (congestion != null && !congestion.isEmpty()) {
 			try {
 				congestionClass = Class.forName("org.graphstream.algorithm.community." + congestion);
-				_congestionAlgorithm = (EpidemicCommunityAlgorithm) congestionClass.newInstance();
+				_congestionAlgorithm = (CongestionMeasure) congestionClass.newInstance();
 			} catch (InstantiationException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -212,12 +217,9 @@ public class Crowds {
 				e.printStackTrace();
 			}
 //			private Dictionary<String, Object>  
-
-			_congestionAlgorithm.init(_graph);
-			_congestionAlgorithm.staticMode();
-			_congestionAlgorithm.setMarker(congestionMarker);
 			_congestionAlgorithm.setParameters(congestionParams);
-			printAlgorithmInfo(_congestionAlgorithm, congestionParams, _congestionAlgorithm.getMarker());
+			_congestionAlgorithm.init(_graph);
+			printAlgorithmInfo(_congestionAlgorithm, congestionParams, numberOfStopsMarker);
 		}
 		_algorithmParameters = params;
 		_algorithm.init(_graph);
@@ -228,11 +230,24 @@ public class Crowds {
 		_scoreMarker = _communityMarker + ".score";
 		printAlgorithmInfo(_algorithm, _algorithmParameters, _communityMarker);
 		
-		Modularity modularityCom = new Modularity(_communityMarker);	
+		Modularity modularityCom = new Modularity(_communityMarker);
+		Modularity weightedModularityCom = new Modularity(_communityMarker, (String)params.get("weightMarker"));
 		if (_goal.equals("communities")) {
 			modularityCom.init(_graph);
+			weightedModularityCom.init(_graph);
 			_comDist = new CommunityDistribution(_communityMarker);
 			_comDist.init(_graph);
+			String mobileMarker = (String)_algorithmParameters.get("speedMarker");
+			_mobCom = mobileMarker == null ? null : new MobileCommunityMeasure(_communityMarker, mobileMarker);
+			if (_mobCom != null) {
+				_mobCom.init(_graph);
+			}
+//			mobileMarker = (String)_algorithmParameters.get("speedMarker");
+			mobileMarker = (String)_algorithmParameters.get("avgSpeedMarker");
+			_mobCom2 = mobileMarker == null ? null : new MobileCommunityMeasure(_communityMarker, mobileMarker);
+			if (_mobCom2 != null) {
+				_mobCom2.init(_graph);
+			}
 		}	
 		int step = 0;
 		long start_time = System.currentTimeMillis();
@@ -257,12 +272,22 @@ public class Crowds {
 					for (int i = 0; i < _numberOfIterations; ++i) {
 						_singletons = 0;
 						_connected = 0;
-						_algorithm.compute();
+						
 						if (_congestionAlgorithm != null) {
 							_congestionAlgorithm.compute();
 						}
+						
+						_algorithm.compute();
+						
 						modularityCom.compute();
+						weightedModularityCom.compute();
 						_comDist.compute();
+						if (_mobCom != null) {
+							_mobCom.compute();
+						}
+						if (_mobCom2 != null) {
+							_mobCom2.compute();
+						}
 						double modularityIter = modularityCom.getMeasure();
 						stepsModularity[i] = modularityIter;
 						sumModularity += modularityIter;
@@ -271,7 +296,7 @@ public class Crowds {
 						}
 					}
 					double avgModularity = sumModularity / _numberOfIterations;
-					WriteGraphTimestepStatistics(step, avgModularity, stepsModularity);
+					WriteGraphTimestepStatistics(step, avgModularity, stepsModularity, weightedModularityCom.getMeasure());
 				}
 				++step;
 			}
@@ -325,7 +350,7 @@ public class Crowds {
         System.out.println(" avg shortest path to all targets " + allAvgShortest);
 	}
 	
-	private void printAlgorithmInfo(DecentralizedCommunityAlgorithm algorithm, Dictionary<String,Object> algorithmParameters, String marker) {
+	private void printAlgorithmInfo(Algorithm algorithm, Dictionary<String,Object> algorithmParameters, String marker) {
 		System.out.println("Running community detection ... ");
 		System.out.println("Algorithm\t" + algorithm);
 		System.out.println("Parameters\t" + algorithmParameters);
@@ -386,8 +411,8 @@ public class Crowds {
 				}
 			}
 			Integer numberOfStopsOnLane = 0;
-			if (node.hasAttribute("vehicleLane.stops")) {
-				numberOfStopsOnLane = node.getAttribute("vehicleLane.stops");
+			if (node.hasAttribute(numberOfStopsMarker)) {
+				numberOfStopsOnLane = node.getAttribute(numberOfStopsMarker);
 			}
 			String communityId = community.getId();
 			Double score = 0.0;
@@ -395,6 +420,28 @@ public class Crowds {
 				score = node.getAttribute(_scoreMarker);
 			}		
 			int degree = node.getEdgeSet().size();
+			String isOriginator = "0";
+			if (node.hasAttribute(_communityMarker + ".originator")) {
+				Boolean originator = (Boolean)node.getAttribute(_communityMarker + ".originator");
+				isOriginator = originator ? "1" : "0";
+			}
+			Double dynamism = 0.0;
+			if (node.hasAttribute("dynamism")) {
+				dynamism = (Double)node.getAttribute("dynamism");
+			}
+			Double timeMeanSpeed = 0.0;
+			if (node.hasAttribute("timeMeanSpeed")) {
+				timeMeanSpeed = (Double)node.getAttribute("timeMeanSpeed");
+			}
+			Integer maxHistoryRecords = 0;
+			if (node.hasAttribute("maxHistoryRecords")) {
+				maxHistoryRecords = (Integer)node.getAttribute("maxHistoryRecords");
+			}
+			Integer timeMeanSpeedCount = 0;
+			if (node.hasAttribute("timeMeanSpeed.count")) {
+				timeMeanSpeedCount = (Integer)node.getAttribute("timeMeanSpeed.count");
+			}
+			
 			DecimalFormat df = new DecimalFormat("#.##");
 			try {
 				int comSize = _comDist.communitySize(community);
@@ -412,7 +459,12 @@ public class Crowds {
 				_outCommunity.write(linkId.toString()+"\t"); // linkId
 				_outCommunity.write(df.format(speed)+"\t"); // speed
 				_outCommunity.write(df.format(avgSpeed)+"\t"); // avgspeed
-				_outCommunity.write(numberOfStopsOnLane.toString()); // number of stops on lane
+				_outCommunity.write(numberOfStopsOnLane.toString()+"\t"); // number of stops on lane
+				_outCommunity.write(isOriginator+"\t"); // number of stops on lane
+				_outCommunity.write(df.format(dynamism) +"\t"); // dynamic property (>0 accelarated , < 0 deccelarated)
+				_outCommunity.write(df.format(timeMeanSpeed)+"\t"); // timeMeanSpeed
+				_outCommunity.write(df.format(maxHistoryRecords)+"\t"); // timeMeanSpeed
+				_outCommunity.write(df.format(timeMeanSpeedCount)); // timeMeanSpeed
 				_outCommunity.write("\n"); 
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -457,13 +509,15 @@ public class Crowds {
      * @param _comDist community statistics 
      * @throws IOException
      */
-	public void WriteGraphTimestepStatistics(int step, double avgModularity, double[] stepsModularity) throws IOException {
+	public void WriteGraphTimestepStatistics(int step, double avgModularity, double[] stepsModularity, double weightedModularity) throws IOException {
 		Dictionary<String, Object> values = new Hashtable<String, Object>();
 		values.put("step", step);
 		values.put("nodes", _graph.getNodeCount());
 		values.put("edges", _graph.getEdgeCount());		
 		values.put("singletons", _singletons);
 		values.put("connected", _connected);
+		
+//		System.out.println("avgModularity " + avgModularity + "weightedModularity " + weightedModularity );
 		
 		// stats
 		Toolkit toolkit = new Toolkit();
@@ -521,6 +575,20 @@ public class Crowds {
 			}
 			values.put("iteration_modularities", modularities);
 		}
+
+		values.put("weighted_com_modularity", weightedModularity);
+		
+		if (_mobCom != null) {
+			values.put("speed_avg", _mobCom.averageValue());
+			values.put("speed_std", _mobCom.stdev());
+			values.put("speed_avg_std",_mobCom.averageStddev());
+		}
+		if (_mobCom2 != null) {
+			values.put("avgSpeed_avg", _mobCom2.averageValue());
+			values.put("avgSpeed_std", _mobCom2.stdev());
+			values.put("avgSpeed_avg_std",_mobCom2.averageStddev());
+		}
+		
 		
 		int headersCount = _outGraphHeaders.length;
 		int i = 0;
@@ -529,7 +597,10 @@ public class Crowds {
 				_outGraph.write(values.get(column) + _sep);
 			}
 			else {
-				_outGraph.write((String)values.get(column));
+				Object val = values.get(column);
+				if (val != null) {
+					_outGraph.write(val.toString());
+				}
 			}
 		}
 		
