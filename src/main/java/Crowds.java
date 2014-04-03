@@ -252,54 +252,56 @@ public class Crowds {
 		int step = 0;
 		long start_time = System.currentTimeMillis();
 		System.out.println("Starting simulation for steps:\t" + _startStep + " - " + _stopStep + " at " + start_time);
+		
+
 		try {
-			while (_filesource.nextStep()) {
-				if (step > _stopStep) {
-					break;
-				}
-				if (step >= _startStep) {
-					long currentTime = System.currentTimeMillis();
-			    	System.out.println("step:\t" + step + "\tstopStep\t"+_stopStep 
-			    			+ "\tnodes\t"+_graph.getNodeCount() + "\tedgess\t"+_graph.getEdgeCount()
-			    			+ "\ttime\t" + currentTime + "\tduration\t" + (currentTime - start_time));
-	
-				}
-				if (_goal.equals("communities"))	{
-				_cc.compute();
-				_ccDist.compute();
-					double sumModularity = 0;
-					double[] stepsModularity = new double[_numberOfIterations];
-					for (int i = 0; i < _numberOfIterations; ++i) {
-						_singletons = 0;
-						_connected = 0;
-						
-						if (_congestionAlgorithm != null) {
-							_congestionAlgorithm.compute();
+			// streaming
+//			while (step < _stopStep) {
+//				if (!_filesource.nextStep()) {
+//					Thread.sleep(250);
+//				}
+//				else {
+			
+					// not streaming
+				while (_filesource.nextStep()) {
+						if (step > _stopStep) {
+							break;
 						}
-						
-						_algorithm.compute();
-						
-						modularityCom.compute();
-						weightedModularityCom.compute();
-						_comDist.compute();
-						if (_mobCom != null) {
-							_mobCom.compute();
-						}
-						if (_mobCom2 != null) {
-							_mobCom2.compute();
-						}
-						double modularityIter = modularityCom.getMeasure();
-						stepsModularity[i] = modularityIter;
-						sumModularity += modularityIter;
-						if (i == (_numberOfIterations - 1)) { // write out nodes information during the the last iteration
-							writeNodes(step);
-						}
+					if (step >= _startStep) {
+						long currentTime = System.currentTimeMillis();
+//				    	System.out.println("step:\t" + step + "\tstopStep\t"+_stopStep + "\tnodes\t"+_graph.getNodeCount() + "\tedgess\t"+_graph.getEdgeCount() + "\ttime\t" + currentTime + "\tduration\t" + (currentTime - start_time));
 					}
-					double avgModularity = sumModularity / _numberOfIterations;
-					WriteGraphTimestepStatistics(step, avgModularity, stepsModularity, weightedModularityCom.getMeasure());
+					if (_goal.equals("communities"))	{
+					_cc.compute();
+					_ccDist.compute();
+						double sumModularity = 0;
+						double[] stepsModularity = new double[_numberOfIterations];
+						for (int i = 0; i < _numberOfIterations; ++i) {
+							_singletons = 0;
+							_connected = 0;
+							if (_congestionAlgorithm != null) {
+								_congestionAlgorithm.compute();
+							}
+							_algorithm.compute();
+							modularityCom.compute();
+							weightedModularityCom.compute();
+							_comDist.compute();
+							if (_mobCom != null) { _mobCom.compute(); }
+							if (_mobCom2 != null) { _mobCom2.compute(); }
+							double modularityIter = modularityCom.getMeasure();
+							stepsModularity[i] = modularityIter;
+							sumModularity += modularityIter;
+							if (i == (_numberOfIterations - 1)) { // write out nodes information during the the last iteration
+								writeNodes(step);
+							}
+						}
+						double avgModularity = sumModularity / _numberOfIterations;
+						WriteGraphTimestepStatistics(step, avgModularity, stepsModularity, weightedModularityCom.getMeasure());
+					}
+					++step;
 				}
-				++step;
-			}
+			// streaming
+			//}
 			System.out.println("Finished at step " + step + ", graph.getStep: " +  _graph.getStep() + ", _fileSource.nextStep: " + _filesource.nextStep());
 			printSummary(System.currentTimeMillis()-start_time);
 			if (_goal.equals("ASPL")) {
@@ -315,6 +317,11 @@ public class Crowds {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+//			catch (InterruptedException e) {
+//			// TODO Auto-generated catch block
+//			System.out.println("InterruptedException " + e);
+//			e.printStackTrace();
+//		}
 		finally {
 			_filesource.removeSink(_graph);
 		}
@@ -466,6 +473,7 @@ public class Crowds {
 				_outCommunity.write(df.format(maxHistoryRecords)+"\t"); // timeMeanSpeed
 				_outCommunity.write(df.format(timeMeanSpeedCount)); // timeMeanSpeed
 				_outCommunity.write("\n"); 
+				_outCommunity.flush();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -539,21 +547,26 @@ public class Crowds {
 		values.put("avg_cc_size", _ccDist.average());
 		List<Node> giantComponent = _cc.getGiantComponent();
 		int ccId = -1;
-		if (giantComponent.size() > 0) {
-			Node node = giantComponent.get(0);
-			ccId = (Integer)node.getAttribute(_ccMarker);
+		if (giantComponent == null) {
+			values.put("max_cc_size",-1);
+			values.put("max_cc_id", -1);
+			values.put("cc_std_dev", -1);
 		}
-		values.put("max_cc_size",giantComponent.size());
-		values.put("max_cc_id", ccId);
-		values.put("cc_std_dev", _ccDist.average());
-		
-		// communities "com_count" "avg_com_size" "max_com_size" "max_com_id" "min_com_size" "min_com_id" "std_com_dist"
+		else {
+			if (giantComponent.size() > 0) {
+				Node node = giantComponent.get(0);
+				ccId = (Integer)node.getAttribute(_ccMarker);
+			}
+			values.put("max_cc_size",giantComponent.size());
+			values.put("max_cc_id", ccId);
+			values.put("cc_std_dev", _ccDist.average());
+		}
 		values.put("com_count",_comDist.number());
 		values.put("avg_com_size", _comDist.average());
 		values.put("max_com_size", _comDist.maxCommunitySize());
-		values.put("max_com_id", (Community)_comDist.biggestCommunity());
+		values.put("max_com_id",(_comDist.biggestCommunity()==null ? -1: (Community)_comDist.biggestCommunity()));
 		values.put("min_com_size", _comDist.minCommunitySize());
-		values.put("min_com_id",(Community)_comDist.smallestCommunity());
+		values.put("min_com_id",(_comDist.smallestCommunity()==null ? -1: (Community)_comDist.smallestCommunity()));
 		values.put("std_com_dist",_comDist.stdev());
 		int[] sizeDistribution = _comDist.sizeDistribution();
 		if (sizeDistribution != null) {
@@ -603,8 +616,8 @@ public class Crowds {
 				}
 			}
 		}
-		
 		_outGraph.newLine();
+		_outGraph.flush();
 	}
 
 	

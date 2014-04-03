@@ -7,6 +7,7 @@ import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
 
+import org.graphstream.algorithm.community.CongestionMeasure;
 import org.graphstream.algorithm.community.MobileMarker;
 
 import main.java.Crowds;
@@ -25,8 +26,12 @@ public class CrowdsTest {
 //	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long_120kmph_600/vanet.dgs";
 //	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long_120kmph_600_speed/vanet.dgs";
 //	private static String filePath = "/Users/agatagrzybek/Google Drive/PhD/workshop/sumo_scenarios/twolanes_long_120kmph_600_speed/vanet_avgspeed_direction.dgs";
-	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/vanet_probeData_v15-30+200_17032014.dgs";
-	
+//	private static String filePath = "/Users/agatagrzybek/workspace/Jean/Agata/vanet_probeData_v15-30+200_17032014.dgs";
+//	private static String filePath = "/Users/agatagrzybek/workspace/ovnis/scenarios/Kirchberg/sumoOutput-accident/400-400-200/Kirchberg-400-400-200.dgs";
+//	private static String filePath = "/Users/agatagrzybek/workspace/ovnis/scenarios/Kirchberg/sumoOutput-accident/900-50-50/Kirchberg-flow-05.dgs";
+//	private static String filePath = "/Users/agatagrzybek/workspace/gs-algo/src-test/org/graphstream/algorithm/measure/test/data/TestCongestionMeasure_long.dgs";
+	private static String filePath = "/Users/agatagrzybek/workspace/ovnis/scenarios/Kirchberg/sumoOutput-accident/900-50-50/Kirchberg-accident-900-50-50-100PR.dgs";
+			
 	private static String sep = "\t";
 	private static String sep2 = ",";
 	private static String communityFileDataFormat = "step"+sep+"node_id"+sep+"x"+sep+"y"+sep+"degree"+sep+"com_id"+sep+"com_score"+sep+"com_size"+sep+"link_id"+sep+"speed"+sep+"avg_speed"+sep+"num_stops"+sep+"is_originator"+sep+"dynamism"+sep+"timeMeanSpeed"+sep+"maxHistoryRecords"+sep+"timeMeanSpeed.count";
@@ -39,7 +44,7 @@ public class CrowdsTest {
 	private static double deltaParameter = 0.05;
 	private static int numberOfIterations = 1;
 	private static int startStep = 0;
-	private static int endStep = 100;
+	private static int endStep = 1000;
 	private static String styleSheetUrl = "css/stylesheet.css";
 	private static String _prefix = "img";
 	private static String img_prefix;
@@ -62,8 +67,8 @@ public class CrowdsTest {
 	private static Double mobilitySimilarityThreshold = 0.5; // 0 means no threshold
 	private static Double maxSpeed = 50.0; // 0 means no threshold
 //	private static Double congestionSpeedThreshold = 25.0; // freeways
-	private static Double congestionSpeedThreshold = 11.0; // urban
-	
+	private static Double congestionSpeedThreshold = 0.0; // urban
+	private static Integer speedHistoryLength = 10;
 	
 	/**
 	 * @param args
@@ -138,6 +143,7 @@ public class CrowdsTest {
 			congestionParams.put("laneMarker", markers.get(MobileMarker.LANE));
 			congestionParams.put("posMarker", markers.get(MobileMarker.POS));
 			congestionParams.put("dynamismMarker", markers.get(MobileMarker.DYNAMISM));
+			congestionParams.put("speedHistoryLength", speedHistoryLength);
 		}
 		
 		String[] printOutMarkers = { markers.get(MobileMarker.X), markers.get(MobileMarker.Y) };
@@ -171,7 +177,6 @@ public class CrowdsTest {
 		markers.put(MobileMarker.DISTANCE, "distance");
 		markers.put(MobileMarker.DYNAMISM, "dynamism");
 		markers.put(MobileMarker.TIMEMEANSPEED, "timeMeanSpeed");
-		
 		return markers;
 	}
 
@@ -213,12 +218,13 @@ public class CrowdsTest {
 					goal = argValue.trim();
 				}
 				if (argName.equals("--mobilityWeight")) {
-					// todo undo when tested
 //					mobilityWeight = Double.parseDouble(argValue);
-					mobilitySimilarityThreshold = Double.parseDouble(argValue);
+//					mobilitySimilarityThreshold = Double.parseDouble(argValue);
 //					maxSpeed = Double.parseDouble(argValue);
 					congestionSpeedThreshold = Double.parseDouble(argValue);
-//					
+				}
+				if (argName.equals("--param")) {
+					speedHistoryLength = Integer.parseInt(argValue);
 				}
 				if (argName.equals("--mobilitySimilarityThreshold")) {
 					mobilitySimilarityThreshold = Double.parseDouble(argValue);
@@ -230,19 +236,26 @@ public class CrowdsTest {
 		algorithmOutputFile = outputDir + "algorithm.csv";
 		styleSheetUrl = "url('file:////"+dir+"/"+styleSheetUrl+"')";
 		img_prefix = outputDir+_prefix;
+		BufferedWriter _outSettings;
+		try {
+			_outSettings = new BufferedWriter(new FileWriter(outputDir + "crowdz_settings.csv"));
+			_outSettings.write("CROWDZ" + "\n");
+			_outSettings.write("congestionSpeedThreshold " + congestionSpeedThreshold + "\n");
+			_outSettings.write("speedHistoryLength " + speedHistoryLength + "\n");
+			_outSettings.write("filePath\t" + filePath + "\n");
+			_outSettings.write("dir\t" + dir + "\n");
+			_outSettings.write("communityOutputFile\t" + communityOutputFile + "\n");
+			_outSettings.write("graphOutputFile\t" + graphOutputFile + "\n");
+			_outSettings.write("algorithmOutputFile\t" + algorithmOutputFile + "\n");
+			_outSettings.write("algorithm\t" + algorithm + "\n");
+			_outSettings.write("congestion\t" + congestion + "\n");
+			_outSettings.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 
-		System.out.println("CROWDS STARTED --------------");
-		System.out.println("speed thres " + congestionSpeedThreshold);
-		System.out.println("Meantime 90 ");
-		System.out.println("Crowds parameters:");
-		System.out.println("filePath\t" + filePath);
-		System.out.println("dir\t" + dir);
-		System.out.println("styleSheetUrl\t" + styleSheetUrl);
-		System.out.println("img_prefix\t" + img_prefix);
-		System.out.println("communityOutputFile\t" + communityOutputFile);
-		System.out.println("graphOutputFile\t" + graphOutputFile);
-		System.out.println("algorithmOutputFile\t" + algorithmOutputFile);
-		System.out.println("goal\t" + goal);
 		
 		
 		
