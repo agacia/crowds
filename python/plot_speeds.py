@@ -52,6 +52,7 @@ ytitle = 'speed'
 # # rect = fig.patch
 # # rect.set_facecolor('black')
 # ax1 = fig.add_subplot(1,1,1, axisbg='white') # height, width, chart # 
+
 # ax1.plot(x, y2, 'r', linewidth=1, label="Speed")
 # # ax1.set_title("Speed")
 # ax1.set_xlabel("Time")

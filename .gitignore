@@ -9,3 +9,8 @@ bin
 output
 .DS_Store
 prefix_*
+.classpath
+.project
+.settings
+*.sublime-*
+scripts/old/*

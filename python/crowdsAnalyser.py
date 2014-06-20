@@ -179,6 +179,22 @@ class CrowdsAnalyser:
 		# plt.show()
 		plt.savefig(os.path.join(dirname, "hist-numb-changes.png"))
 
+	def analyseLinks(self, column, dirname):
+		# group by step and com_id to get statistics for each community at every step
+		# links = self.df[["step", "link_id", "com_id"]]
+		self.df.head()
+		gb = self.df.groupby(["link_id", "step"])
+		self.links = gb.com_id.nunique()
+		self.links.head()
+		print self.links
+		path = os.path.join(dirname, "links.tsv")
+		print "writing to {0}".format(path)
+		out = open(os.path.join(path), "w")
+		self.links.to_csv(out, sep='\t')
+		
+		# for name, group in gb.groups:
+		# 	print name, group
+		
 	def moreThan(self, column, thres):
 		biggerThan = lambda x: (x > thres)
 		print "before transformed", biggerThan

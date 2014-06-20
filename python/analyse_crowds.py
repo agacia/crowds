@@ -61,6 +61,12 @@ def main():
 		ca.analyseVehicles("node_id",options.outputDir)
 		ca.writeVehiclesToFile(options.outputDir)
 
+	if options.type == "links":
+		ca = CrowdsAnalyser()
+		ca.readFile(os.path.join(options.outputDir, "communities.csv"))
+		ca.analyseLinks("link_id",options.outputDir)
+		# ca.writeLinksToFile(options.outputDir)
+
 	if options.type == "communities_pandas":
 		ca = CrowdsAnalyser()
 		print "ca.readFile..."
