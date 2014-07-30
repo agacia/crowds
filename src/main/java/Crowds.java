@@ -7,6 +7,7 @@ import java.text.DecimalFormat;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.List;
 
 import org.graphstream.algorithm.APSP;
@@ -19,8 +20,10 @@ import org.graphstream.algorithm.community.Community;
 import org.graphstream.algorithm.community.DecentralizedCommunityAlgorithm;
 import org.graphstream.algorithm.community.CongestionMeasure;
 import org.graphstream.algorithm.measure.CommunityDistribution;
+import org.graphstream.algorithm.measure.EdgeMeasure;
 import org.graphstream.algorithm.measure.MobileCommunityMeasure;
 import org.graphstream.algorithm.measure.Modularity;
+import org.graphstream.graph.Edge;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.*;
@@ -39,7 +42,7 @@ public class Crowds {
 	private static String sep = "\t";
 	private static String sep2 = ",";
 	private static String communityFileDataFormat = "step"+sep+"node_id"+sep+"x"+sep+"y"+sep+"degree"+sep+"com_id"+sep+"com_score"+sep+"com_size"+sep+"link_id"+sep+"speed"+sep+"avg_speed"+sep+"num_stops"+sep+"is_originator"+sep+"dynamism"+sep+"timeMeanSpeed"+sep+"maxHistoryRecords"+sep+"timeMeanSpeed.count";
-	private static String graphFileDataFormat = "step"+sep+"nodes"+sep+"edges"+sep+"singletons"+sep+"connected"+sep+"avg_degree"+sep+"degree_distribution"+sep+"diameter"+sep+"avg_clustering_coefficient"+sep+"cc_count"+sep+"avg_cc_size"+sep+"max_cc_size"+sep+"max_cc_id"+sep+"cc_std_dev"+sep+"com_count"+sep+"avg_com_size"+sep+"max_com_size"+sep+"max_com_id"+sep+"min_com_size"+sep+"min_com_id"+sep+"std_com_dist"+sep+"size_distribution"+sep+"modularity"+sep+"com_modularity"+sep+"iterations"+sep+"iteration_modularities"+sep+"weighted_com_modularity"+sep+"speed_avg"+sep+"speed_std"+sep+"speed_avg_std"+sep+"avgSpeed_avg"+sep+"avgSpeed_std"+sep+"avgSpeed_avg_std";
+	private static String graphFileDataFormat = "step"+sep+"nodes"+sep+"edges"+sep+"singletons"+sep+"connected"+sep+"avg_degree"+sep+"degree_distribution"+sep+"diameter"+sep+"avg_clustering_coefficient"+sep+"cc_count"+sep+"avg_cc_size"+sep+"max_cc_size"+sep+"max_cc_id"+sep+"cc_std_dev"+sep+"com_count"+sep+"avg_com_size"+sep+"max_com_size"+sep+"max_com_id"+sep+"min_com_size"+sep+"min_com_id"+sep+"std_com_dist"+sep+"size_distribution"+sep+"modularity"+sep+"com_modularity"+sep+"iterations"+sep+"iteration_modularities"+sep+"weighted_com_modularity"+sep+"speed_avg"+sep+"speed_std"+sep+"speed_avg_std"+sep+"avgSpeed_avg"+sep+"avgSpeed_std"+sep+"avgSpeed_avg_std"+sep+"avg_edge_weight";
 
 	private FileSource _filesource = null;
 	private Graph _graph = null;
@@ -55,11 +58,15 @@ public class Crowds {
 	CommunityDistribution _ccDistribution = null;
 	CommunityDistribution _communityDistribution = null;
 	MobileCommunityMeasure _mobileCommunityMeasure = null;
+	EdgeMeasure _edgeMeasure = null;
 
 	String _ccMarker = null;
 	String _communityMarker = null;
 	String _communityScoreMarker = null;
 	String _weightMarker = null;
+	String _linkDurationMarker = null;
+	String _mobilitySimilarityMarker = null;
+	
 	String _speedMarker = null;
 	
 	// settings
@@ -78,6 +85,7 @@ public class Crowds {
 	BufferedWriter _outCommunity;
 	String[] _outCommunityHeaders;
 	BufferedWriter _outGraph;
+	BufferedWriter _outEdges;
 	String[] _outGraphHeaders;
 	BufferedWriter _outAlgorithm;
 	
@@ -164,13 +172,16 @@ public class Crowds {
 			return;
 		}
 		_communityAlgorithm.setParameters(params);
-		_communityAlgorithm.staticMode();
+//		_communityAlgorithm.staticMode();
 		_communityAlgorithm.setMarker(marker);
 		_communityAlgorithm.init(_graph);
 		_communityMarker = _communityAlgorithm.getMarker();
 		_communityScoreMarker = _communityMarker + ".score";
-		_weightMarker = _communityAlgorithm.getParameter("weightMarker");
-		_speedMarker = _communityAlgorithm.getParameter("speedMarker");
+		_weightMarker = (String)_communityAlgorithm.getParameter("weightMarker");
+		_linkDurationMarker = (String)_communityAlgorithm.getParameter("linkDurationMarker");
+		_mobilitySimilarityMarker = (String)_communityAlgorithm.getParameter("mobilitySimilarityMarker");
+		System.out.println("Crowds _weightMarker " + _weightMarker);
+		_speedMarker = (String)_communityAlgorithm.getParameter("speedMarker");
 		_modularity = new Modularity(_communityMarker);
 		_modularity.init(_graph);
 		_weightedModularity = new Modularity(_communityMarker, _weightMarker);
@@ -179,7 +190,9 @@ public class Crowds {
 		_communityDistribution.init(_graph);
 		_mobileCommunityMeasure = new MobileCommunityMeasure(_communityMarker, _speedMarker);
 		_mobileCommunityMeasure.init(_graph);
-
+		System.out.println("_weightMarker " + _weightMarker);
+		_edgeMeasure = new EdgeMeasure(_weightMarker);
+		_edgeMeasure.init(_graph);
 		writeOutAlgorithmInfo(_communityAlgorithm, params, _communityMarker);
 	}
 	
@@ -245,6 +258,7 @@ public class Crowds {
 			_weightedModularity.compute();
 			_communityDistribution.compute();
 			_mobileCommunityMeasure.compute();
+			_edgeMeasure.compute();
 			double modularityIter = _modularity.getMeasure();
 			stepsModularity[i] = modularityIter;
 			sumModularity += modularityIter;
@@ -270,13 +284,14 @@ public class Crowds {
 				}
 				if (step >= _startStep) {
 					long currentTime = System.currentTimeMillis();
-			    	System.out.println("step:\t" + step + "\tstopStep\t"+_stopStep + "\tnodes\t"+_graph.getNodeCount() + "\tedgess\t"+_graph.getEdgeCount() + "\ttime\t" + currentTime + "\tduration\t" + (currentTime - start_time));
+//			    	System.out.println("step:\t" + step + "\tstopStep\t"+_stopStep + "\tnodes\t"+_graph.getNodeCount() + "\tedgess\t"+_graph.getEdgeCount() + "\ttime\t" + currentTime + "\tduration\t" + (currentTime - start_time));
 				}					
 				if (_goal.equals("communities")) { computeGraphStep(step); }					
 				++step;
 			}
 			if (_goal.equals("ASPL")) { computeASPL(); }
 			writeOut("Finished at step " + step + ", graph.getStep: " +  _graph.getStep() + ", _fileSource.nextStep: " + _filesource.nextStep());
+			System.out.println("Finished at step " + step + ", graph.getStep: " +  _graph.getStep() + ", _fileSource.nextStep: " + _filesource.nextStep());
 			writeOutSummary(System.currentTimeMillis()-start_time);
 			
 		} catch (IOException e) {
@@ -384,6 +399,7 @@ public class Crowds {
 			_outAlgorithm.write("Algorithm\t" + algorithm + "\n");
 			_outAlgorithm.write("Parameters\t" + algorithmParameters + "\n");
 			_outAlgorithm.write("Marker\t" + marker + "\n");
+			_outAlgorithm.write("_weightMarker " + _weightMarker);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -410,6 +426,7 @@ public class Crowds {
 		
 		String communityOutputFile = outputDir + "crowds_communities.csv";
 		String graphOutputFile = outputDir + "crowds_graph.csv";
+		String edgesOutputFile = outputDir + "crowds_edges.csv";
 		String algorithmOutputFile = outputDir + "crowds_algorithm.csv";
 		try {
 			_outCommunity = new BufferedWriter(new FileWriter(communityOutputFile));
@@ -420,6 +437,9 @@ public class Crowds {
 			_outGraphHeaders = graphFileDataFormat.split(sep);
 			_outGraph.write(graphFileDataFormat);
 			_outGraph.newLine();
+			_outEdges = new BufferedWriter(new FileWriter(edgesOutputFile));
+			_outEdges.write("step\tedge_id\tdegree_a\tdegree_b\tsim_n\tlink_duration\tmobility_similarity\tweight");
+			_outEdges.newLine();
 			_outAlgorithm = new BufferedWriter(new FileWriter(algorithmOutputFile));
 			
 		} catch (IOException e) {
@@ -486,26 +506,28 @@ public class Crowds {
 			
 			DecimalFormat df = new DecimalFormat("#.##");
 			try {
+				if (node.hasAttribute("x")) {
 				int comSize = _communityDistribution.communitySize(community);
-				_outCommunity.write(step+"\t");
-				_outCommunity.write(node.getId()+"\t");
-				_outCommunity.write(df.format(node.getAttribute("x"))+"\t");
-				_outCommunity.write(df.format(node.getAttribute("y"))+"\t");
-				_outCommunity.write(degree+"\t");
-				_outCommunity.write(communityId+"\t"); // comId
-				_outCommunity.write(df.format(score)+"\t");
-				_outCommunity.write(comSize+"\t"); // comSize
-				_outCommunity.write(linkId.toString()+"\t"); // linkId
-				_outCommunity.write(df.format(speed)+"\t"); // speed
-				_outCommunity.write(df.format(avgSpeed)+"\t"); // avgspeed
-				_outCommunity.write(numberOfStopsOnLane.toString()+"\t"); // number of stops on lane
-				_outCommunity.write(isOriginator+"\t"); // number of stops on lane
-				_outCommunity.write(df.format(dynamism) +"\t"); // dynamic property (>0 accelarated , < 0 deccelarated)
-				_outCommunity.write(df.format(timeMeanSpeed)+"\t"); // timeMeanSpeed
-				_outCommunity.write(df.format(maxHistoryRecords)+"\t"); // timeMeanSpeed
-				_outCommunity.write(df.format(timeMeanSpeedCount)); // timeMeanSpeed
-				_outCommunity.write("\n"); 
-				_outCommunity.flush();
+					_outCommunity.write(step+"\t");
+					_outCommunity.write(node.getId()+"\t");
+					_outCommunity.write(df.format(node.getAttribute("x"))+"\t");
+					_outCommunity.write(df.format(node.getAttribute("y"))+"\t");
+					_outCommunity.write(degree+"\t");
+					_outCommunity.write(communityId+"\t"); // comId
+					_outCommunity.write(df.format(score)+"\t");
+					_outCommunity.write(comSize+"\t"); // comSize
+					_outCommunity.write(linkId.toString()+"\t"); // linkId
+					_outCommunity.write(df.format(speed)+"\t"); // speed
+					_outCommunity.write(df.format(avgSpeed)+"\t"); // avgspeed
+					_outCommunity.write(numberOfStopsOnLane.toString()+"\t"); // number of stops on lane
+					_outCommunity.write(isOriginator+"\t"); // number of stops on lane
+					_outCommunity.write(df.format(dynamism) +"\t"); // dynamic property (>0 accelarated , < 0 deccelarated)
+					_outCommunity.write(df.format(timeMeanSpeed)+"\t"); // timeMeanSpeed
+					_outCommunity.write(df.format(maxHistoryRecords)+"\t"); // timeMeanSpeed
+					_outCommunity.write(df.format(timeMeanSpeedCount)); // timeMeanSpeed
+					_outCommunity.write("\n"); 
+					_outCommunity.flush();
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -587,6 +609,9 @@ public class Crowds {
 			values.put("speed_std", _mobileCommunityMeasure.stdev());
 			values.put("speed_avg_std",_mobileCommunityMeasure.averageStddev());
 		}
+		if (_edgeMeasure != null) {
+			values.put("avg_edge_weight", _edgeMeasure.getMean());
+		}
 		return values;
     }
     
@@ -615,6 +640,22 @@ public class Crowds {
 			}
 			_outGraph.newLine();
 			_outGraph.flush();
+			
+			//write graph edges
+//			Iterator<Edge> it = _graph.getEdgeIterator();
+//			while (it.hasNext()) {
+//				Edge edge = it.next();
+//				// step\tedge_id\tdegree_a\t\degree_b\tsim_n\tlink_duration\tmobility_similarity\tweight
+//				int degree_a = edge.getNode0().getDegree();
+//				int degree_b = edge.getNode1().getDegree();
+//				Double linkDuration = edge.hasAttribute(this._linkDurationMarker) ? (Double)edge.getAttribute(this._linkDurationMarker) : 0.0;
+//				Double mobilitySimilarity = edge.hasAttribute(this._mobilitySimilarityMarker) ? (Double)edge.getAttribute(this._mobilitySimilarityMarker) : 0.0;
+//				Double weight = edge.hasAttribute(this._weightMarker) ? (Double)edge.getAttribute(this._weightMarker) : 0.0;
+//				Double n_sim = edge.hasAttribute("n_sim") ? (Double)edge.getAttribute("n_sim") : 0.0;
+//				_outEdges.write(step + "\t" + edge.getId() + "\t" +  degree_a +"\t" +  degree_b +"\t" +  n_sim + "\t" + linkDuration + "\t" + mobilitySimilarity + "\t" + weight + "\t" );
+//				_outEdges.newLine();
+//			}
+//			_outEdges.flush();
 		}
 		catch (IOException e) {
 			e.printStackTrace();

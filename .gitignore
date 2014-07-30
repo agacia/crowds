@@ -14,3 +14,5 @@ prefix_*
 .settings
 *.sublime-*
 scripts/old/*
+
+python/*

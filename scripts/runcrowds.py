@@ -37,6 +37,8 @@ def main():
     parser.add_option('--goal', help=("goal"), type="string", dest='goal')
     parser.add_option('-c', '--cluster', help=("cluster"),
                       action="store_true", dest='cluster', default=False)
+    parser.add_option('--calljava', help=("calljava"),
+                      action="store_true", dest='calljava', default=False)
 
     (options, args) = parser.parse_args()
     print options
@@ -51,7 +53,9 @@ def main():
         print "DGS file not valid"
         return
 
-    add_link_duration_dgs(options.inputFile)
+    os.system("mkdir %s" % options.outputFolder)
+
+    # add_link_duration_dgs(options.inputFile)
 
     # run crodws
     app = os.path.join(options.crowdsPath, options.crowdsjar)
@@ -63,13 +67,22 @@ def main():
             options.outputFolder, options.goal, options.startStep,
             options.endStep, options.numberOfIterations,
             options.speedHistoryLength, options.speedType)
-    call_java(app, args)
+    if options.calljava:
+        call_java(app, args)
+
 
     # analyse
     app = os.path.join(options.crowdsPath, "python", "analyse_crowds.py")
     inputfile = os.path.join(options.outputFolder, "crowds_communities.csv")
-    args = " --inputFile %s --outputDir %s" % (
-        inputfile, options.outputFolder)
+    analysis_type = "vehicles"
+    args = " --outputDir %s --type %s" % (
+       options.outputFolder, analysis_type)
+    call_python(app, args)
+
+    inputfile = os.path.join(options.outputFolder, "crowds_graph.csv")
+    analysis_type = "modularity"
+    args = " --outputDir %s --type %s" % (
+       options.outputFolder, analysis_type)
     call_python(app, args)
 
 
@@ -105,9 +118,16 @@ def check_dgs(dgspath):
             if len(data) > 0:
                 if data[0] == "an":
                     nodeid = data[1].strip()
+                    # if nodeid in nodes and nodes.get(nodeid) == 0:
+                    #     print "add node for another time" , nodeid
                     nodes[nodeid] = nodes.get(nodeid, 0) + 1
+                if data[0] == "dn":
+                    nodeid = data[1].strip()
+                    nodes[nodeid] = nodes.get(nodeid, 0) - 1
                 if data[0] == "ae":
                     edgeid = data[1].strip()
+                    # if edgeid in edges and edges.get(edgeid) == 0:
+                    #     print "add edge for another time" , edgeid
                     edges[edgeid] = edges.get(edgeid, 0) + 1
                 if data[0] == "de":
                     edgeid = data[1].strip()
@@ -122,6 +142,8 @@ def check_dgs(dgspath):
             print [(k,v) for k,v in nodes.items() if v > 1]
             valid = False
         if doubled_edge:
+            print
+            print
             print "Doubled edge!", doubled_edge
             valid = False
         print "dgs file", dgspath, ", is valid: ", valid, ", num nodes: ", num_nodes, ", num edges", num_edges
@@ -136,7 +158,7 @@ def call_java(app, args):
 def call_python(app, args):
     call = "python " + app + " " + args
     print "running", call
-    # os.system(call)
+    os.system(call)
 
 
 

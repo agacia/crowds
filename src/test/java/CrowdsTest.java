@@ -1,5 +1,6 @@
 package test.java;
 
+import java.io.IOException;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -17,15 +18,15 @@ public class CrowdsTest {
 
 		System.out.println(args.length);
 		if (args.length < 2) {
-			args = new String[]{ "--inputFile", "/Users/agata/workspace/scenarios/Kirchberg/sumoOutput-accident/400-400-200/Kirchberg-400-400-200.dgs_link_duration.dgs",
-				"--communityAlgorithmName", "NewSawSharc_oryg",
+			args = new String[]{ "--inputFile",  "//Users/agata/shared/thesis_scenarios/highway_congestion/crowds/input/vanet.dgs", // "/Users/agata/workspace/Jean/Agata/vanet_probeData_v15-30+300_17032014.dgs", // "/Users/agata/Documents/PhD/sumo_scenarios/twolanes_long_120kmph_600/vanet.dgs",
+				"--communityAlgorithmName", "SandSharc", // "SandSharc_ag", //"NewSawSharc_oryg", // "SandSharc_hybrid", // SandSharc_mobility SandSharc_link_duration   SandSharc_oryg StableCrowdz "MobileSandSharc_oryg", // "Crowdz", //"SandSharc_oryg",
 				"--congestionAlgorithmName", "CongestionMeasure",
 				"--goal", "communities",
 				"--startStep", "0",
-				"--endStep", "100",
+				"--endStep", "1000",
 				"--outputDir", "/Users/agata/workspace/crowds/output/eclipse/",
-				"--speedHistoryLength", "10",
-				"--speedType", "instant",
+				"--speedHistoryLength", "90",
+				"--speedType", "timemean",
 				"--numberOfIterations", "1"};
 		}
 		HashMap<String, String> programArgs = parseArgs(args);
@@ -34,6 +35,12 @@ public class CrowdsTest {
 		Dictionary<String, Object> congestionAlgorithmParams = getCongestionParams(programArgs, markers);
 		
 		Crowds crowds = new Crowds();	
+//		try {
+//			crowds.setImagesGeneration(true);
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 		crowds.setSettings(Integer.parseInt(programArgs.get("startStep")), 
 				Integer.parseInt(programArgs.get("endStep")),
 				Integer.parseInt(programArgs.get("numberOfIterations")), 
@@ -42,7 +49,14 @@ public class CrowdsTest {
 		crowds.readGraph(programArgs.get("filePath"));
 		
 		crowds.initializeConnectedComponents(markers.get(MobileMarker.MODULE));
-		crowds.initializeCommunityDetectionAlgorithm(programArgs.get("communityAlgorithmName"), markers.get(MobileMarker.COMMUNITY), communityAlgorithmParams);
+		String communityAlgorithmName = programArgs.get("communityAlgorithmName");
+		if (communityAlgorithmName.equals("SandSharc_oryg") || 
+				communityAlgorithmName.equals("SandSharc_mobility") || 
+				communityAlgorithmName.equals("SandSharc_link_duration") ||
+				communityAlgorithmName.equals("SandSharc_hybrid")) {
+			communityAlgorithmName = "SandSharc_oryg";
+		}
+		crowds.initializeCommunityDetectionAlgorithm(communityAlgorithmName, markers.get(MobileMarker.COMMUNITY), communityAlgorithmParams);
 		crowds.initializeCongestionDetectionAlgorithm(programArgs.get("congestionAlgorithmName"), markers.get(MobileMarker.CONGESTION), congestionAlgorithmParams);
 		
 		crowds.detectCommunities();
@@ -52,11 +66,14 @@ public class CrowdsTest {
 		Hashtable<String, Object> params = new Hashtable<String, Object>();
 		String algorithmName = programArgs.get("congestionAlgorithmName");
 		if (algorithmName.equals("CongestionCrowdz") || algorithmName.equals("CongestionMeasure")) {	
-			params.put("weightMarker", "");
+			params.put("weightMarker", "weight");
 			params.put("speedMarker", markers.get(MobileMarker.SPEED));
+			params.put("angleMarker", markers.get(MobileMarker.ANGLE));
+			params.put("mobilitySimilarityMarker", markers.get(MobileMarker.MOBILITY_SIMILARITY));
 			params.put("laneMarker", markers.get(MobileMarker.LANE));
 			params.put("dynamismMarker", markers.get(MobileMarker.DYNAMISM));
 			params.put("linkDurationMarker", markers.get(MobileMarker.LINK_DURATION));
+			params.put("hybridMarker", "hybrid");
 			params.put("speedHistoryLength", Integer.parseInt(programArgs.get("speedHistoryLength")));
 			params.put("speedType", programArgs.get("speedType"));
 		}
@@ -66,9 +83,39 @@ public class CrowdsTest {
 	public static Dictionary<String, Object> getAlgorithmParams(HashMap<String, String> programArgs, HashMap<MobileMarker, String> markers) {
 		Dictionary<String, Object> params = new Hashtable<String, Object>();
 		String algorithmName = programArgs.get("communityAlgorithmName");
-		if (algorithmName.equals("NewSawSharc_oryg")) {
+		// Oryginal SandSharc + link_duration as stability measure
+		if (algorithmName.equals("SandSharc_oryg")) {
+			params.put("weightMarker", "");
+		}
+		// Oryginal SandSharc + mobility_metric as stability measure
+		else if (algorithmName.equals("SandSharc_mobility")) {
+			params.put("mobilitySimilarityMarker", markers.get(MobileMarker.MOBILITY_SIMILARITY));
+			params.put("linkDurationMarker", markers.get(MobileMarker.LINK_DURATION));
+			params.put("weightMarker", markers.get(MobileMarker.MOBILITY_SIMILARITY));
+//			params.put("speedMarker", markers.get(MobileMarker.TIMEMEANSPEED));
+//			params.put("angleMarker", markers.get(MobileMarker.ANGLE));
+		}
+		// Oryginal SandSharc + mobility_metric as stability measure
+		else if (algorithmName.equals("SandSharc_link_duration")) {
+			params.put("mobilitySimilarityMarker", markers.get(MobileMarker.MOBILITY_SIMILARITY));
+			params.put("linkDurationMarker", markers.get(MobileMarker.LINK_DURATION));
 			params.put("weightMarker", markers.get(MobileMarker.LINK_DURATION));
 		}
+		else if (algorithmName.equals("SandSharc") || algorithmName.equals("SandSharc_ag") || algorithmName.equals("SandSharc_hybrid") || algorithmName.equals("SandSharc_copy")) {
+			params.put("mobilitySimilarityMarker", markers.get(MobileMarker.MOBILITY_SIMILARITY)); // used in CrowdsTest to print edges
+			params.put("linkDurationMarker", markers.get(MobileMarker.LINK_DURATION)); // used in CrowdsTest to print edges
+			params.put("weightMarker", "hybrid");
+		}
+		// Modified SandSharc + mobility_metric as stability measure
+//		else if (algorithmName.equals("Crowdz")) {	
+//			params.put("weightMarker", "mobility_sim");
+//			params.put("speedMarker", markers.get(MobileMarker.TIMEMEANSPEED));
+//			params.put("angleMarker", markers.get(MobileMarker.ANGLE));
+//		}
+//		else if (algorithmName.equals("StableCrowdz")) {	
+//			params.put("weightMarker", markers.get(MobileMarker.LINK_DURATION));
+//			params.put("mobilitySimilarityMarker", markers.get(MobileMarker.MOBILITY_SIMILARITY));
+//		}
 //		if (algorithmName.equals("Leung")) {
 //			params.put("m", Double.parseDouble(programArgs.get("mParameter")));
 //			params.put("delta", Double.parseDouble(programArgs.get("deltaParameter")));
@@ -80,13 +127,7 @@ public class CrowdsTest {
 //			params.put("m", 0.1);
 //			params.put("delta", 0.05);
 //		}
-//		else if (algorithmName.equals("Crowdz")) {	
-//			params.put("weightMarker", "");
-//			params.put("speedMarker", markers.get(MobileMarker.SPEED));
-//			params.put("avgSpeedMarker", markers.get(MobileMarker.AVG_SPEED));
-//			params.put("angleMarker", markers.get(MobileMarker.ANGLE));
-//			params.put("dynamismMarker", markers.get(MobileMarker.DYNAMISM));
-//		}
+		
 //		else if (algorithmName.equals("MobileSandSharc") || algorithmName.equals("MobileSharc")) {
 //			params.put("weightMarker", markers.get(MobileMarker.WEIGHT));
 //			params.put("speedMarker", markers.get(MobileMarker.SPEED));
@@ -120,6 +161,7 @@ public class CrowdsTest {
 		markers.put(MobileMarker.DYNAMISM, "dynamism");
 		markers.put(MobileMarker.TIMEMEANSPEED, "timeMeanSpeed");
 		markers.put(MobileMarker.LINK_DURATION, "linkDuration");
+		markers.put(MobileMarker.MOBILITY_SIMILARITY, "mob_sim");
 		return markers;
 	}
 
@@ -154,23 +196,12 @@ public class CrowdsTest {
 				if (argName.equals("--numberOfIterations")) {
 					programArgs.put("numberOfIterations", argValue.trim());
 				}
-//				//  mobile congestion detection
-//				if (argName.equals("--congestionSpeedThreshold")) {
-//					programArgs.put("congestionSpeedThreshold", argValue.trim());
-//				}
 				if (argName.equals("--speedHistoryLength")) {
 					programArgs.put("speedHistoryLength", argValue.trim());
 				}
 				if (argName.equals("--speedType")) {
 					programArgs.put("speedType", argValue.trim());;
 				}
-//				// Leung
-//				if (argName.equals("--delta")) {
-//					programArgs.put("deltaParameter", argValue);
-//				}
-//				if (argName.equals("--mParameter")) {
-//					programArgs.put("mParameter", argValue);
-//				}
 			}
 		}
 		return programArgs;

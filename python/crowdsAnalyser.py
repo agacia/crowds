@@ -5,7 +5,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+import matplotlib.font_manager as font_manager
 # from pandas.tools.plotting import bootstrap_plot
+
 
 class CrowdsAnalyser:
 	"store file metadata"
@@ -15,12 +17,39 @@ class CrowdsAnalyser:
 		self.startIndex = 	0
 		self.indexStep = 1
 		self.postfixLenghth = 1
+		self.no_runs = 2
+		self.labels = {
+			"SandSharc_oryg": "NoStability",
+			"SandSharc_link_duration": "Link",
+			"SandSharc_mobility_instant": "Mobility instant",
+			"SandSharc_mobility_timemean": "Mobility timemean",
+			"SandSharc_hybrid_timemean_modifications" : "SandSharc_hybrid_timemean_modifications",
+			"NewSawSharc_oryg" : "NewSawSharc_oryg_modifications",
+			"SandSharc_hybrid_instant": "Link + mobility instant",
+			"SandSharc_hybrid_timemean": "Link + mobility timemean", 
+			"MobileSandSharc_oryg":"MobileSandSharc_oryg", 
+			"SandSharc_ag": "SandSharc_ag",
+			"Crowdz":"Crowdz", 
+			"StableCrowdz": "StableCrowdz"}
+		self.colors = {
+			"SandSharc_oryg": "c",
+			"SandSharc_link_duration":"m",
+			"SandSharc_mobility_instant":"r",
+			"SandSharc_mobility_timemean": "b",
+			"SandSharc_hybrid_timemean_modifications" : "g",
+			"SandSharc_hybrid_instant": "y",
+			"SandSharc_hybrid_timemean": "g",  
+			"NewSawSharc_oryg" : "g",
+			"MobileSandSharc_oryg":"m", 
+			"Crowdz":"b", 
+			"StableCrowdz":"g",
+			"SandSharc_ag": "b",
+			"Crowdz":"b"}
 
 	def readFile(self, filename):
-		print "Reading file {0}".format(filename)
 		self.filename = filename  
 		self.df = pd.read_csv(filename, sep="\t")
-		print("Reading file", filename)
+		print "Read file {0}".format(filename)
 		return self.df
 
 	def readFiles(self, dir, filename, algorithm):
@@ -56,7 +85,6 @@ class CrowdsAnalyser:
 	def analyseCommunities(self, stepColumn, communityColumn):
 		# group by step and com_id to get statistics for each community at every step
 		gb = self.df.groupby([stepColumn, communityColumn])
-		print "gb", gb
 		# self.df["congested"] = self.moreThan(gb["num_stops"], 1)
 		self.communities = gb.aggregate({
 			"degree":[np.mean, np.std, np.amin, np.amax],
@@ -66,30 +94,13 @@ class CrowdsAnalyser:
 			"x":[np.min, np.max], "y":[np.min, np.max],
 			# "congested":[sum],
 			"com_size":[np.size]}).reset_index()
-
-		print  self.communities.columns
-
 		self.communities["congested"] = self.communities["num_stops"]["sum"]
-		print ("self.df.len", len(self.df))
 		# add column with community range calculated as distance between min position of a vehicle and maximum position of vehicle 
 		self.communities["range"] = self.calculateDistance(self.communities.x.amin,self.communities.y.amin,self.communities.x.amax,self.communities.y.amax)
-		# print (self.communities["timeMeanSpeed"])
-		# print ("gb.len", len(gb), "self.communities.len", len(self.communities))
-		#self.communities["num_stops_count"] = self.moreThan(gb["num_stops"], 1)
 		self.communities["num_stops_count"] = self.communities["range"]
-		# print("num_stops_count", self.communities["num_stops_count"])
-		# for name,group in gb:
-		# 	num_stops_count = 0
-		# 	series = group["num_stops"]
-		# 	print "----"
-		# 	print group["num_stops"]
-		# 	lala = np.nonzero(group["num_stops"])
-		# 	print (lala[0], len(lala[0]))
-
+		
 	def analyseSteps(self):
-		print "df",self.df
 		gb = self.df.groupby(['step', 'com_id'])
-		print "gb",gb
 		communities = gb.aggregate({
 			"timeMeanSpeed":[np.size, np.mean, np.std, np.amin, np.amax], 
 			"com_size":[np.size]}).reset_index()
@@ -132,7 +143,7 @@ class CrowdsAnalyser:
 		# print self.concatenated.index
 
 
-	def analyseVehicles(self, vehicleColumn, dirname):
+	def analyseVehicles(self, vehicleColumn):
 		# group by step and com_id to get statistics for each community at every step
 		gb = self.df.groupby(vehicleColumn)
 		self.vehicles = gb.aggregate({
@@ -142,42 +153,42 @@ class CrowdsAnalyser:
 			"num_stops":[np.mean, np.std, np.min, np.max],
 			"x":[np.min, np.max], "y":[np.min, np.max],
 			"com_size":[np.min, np.max, np.mean, np.std]}).reset_index()
-		# print "===="
-		# print "vehicles"
-		# print self.vehicles.head();
-
 		gb2 = self.df.groupby([vehicleColumn,"com_id"])
 		self.vehiclesCom = gb2.aggregate({
 			"com_size":[np.size, np.mean]}).reset_index()
-		# print "===="
-		# print "vehiclesCom"
-		# print self.vehiclesCom.head(23);
-		print self.vehiclesCom.columns.values
 		self.vehiclesCom.columns = [' '.join(col).strip() for col in self.vehiclesCom.columns.values]
-		# print self.vehiclesCom.head(23);
 
-		# print self.vehiclesCom
-		# print self.vehiclesCom["com_size"]["mean"]
 		gb3 = self.vehiclesCom.groupby(vehicleColumn)
-
 		self.vehiclesComSum = gb3.aggregate({
 			"com_id":[np.size],
 			"com_size size":[np.mean, np.sum], # avg number of steps in a community , total number of steps of a vehicle
 			"com_size mean":[np.mean] # avg size of a community
 		})
 		self.vehiclesComSum.columns = [ "avg_steps_in_com", "steps", "avg_com_size", "num_changes" ]
+		return self.vehiclesComSum
 
-		# self.vehiclesComSum2 = gb3.aggregate({
-		# 	"com_size":[np.mean]
-		# })
-		print "===="
-		print "vehiclesComSum", self.vehiclesComSum.head()
-		# print self.vehiclesComSum.head(23);
-		
+
+	def plot_vehicle_hist(self, dirname):
 		plt.figure()
-		self.vehiclesComSum.num_changes.hist(bins=300)
-		# plt.show()
-		plt.savefig(os.path.join(dirname, "hist-numb-changes.png"))
+		self.vehiclesComSum.hist(bins=300, sharey=True)
+		plt.savefig(os.path.join(dirname, "histograms.png"))
+		# fig, axes = plt.subplots(nrows=1, ncols=4, figsize=(12, 4))
+		# for i,var in enumerate(self.vehiclesComSum.columns):
+		# 	self.vehiclesComSum[var].hist(bins=300, ax=axes[i], sharey=True)
+		# 	axes[i].set_ylabel(var)
+		# plt.figure()
+		# self.vehiclesComSum.steps.hist(bins=300)
+		# plt.savefig(os.path.join(dirname, "hist-steps.png"))
+		# plt.figure()
+		# self.vehiclesComSum.avg_com_size.hist(bins=300)
+		# plt.savefig(os.path.join(dirname, "hist-avg_com_size.png"))
+
+
+	def analyseModularity(self, step_column, column_name, dirname):
+		# group by step and com_id to get statistics for each community at every step
+		plt.figure()
+		self.df.plot(x=step_column, y=column_name)
+		plt.savefig(os.path.join(dirname, "column_"+column_name+".png"))
 
 	def analyseLinks(self, column, dirname):
 		# group by step and com_id to get statistics for each community at every step
@@ -221,6 +232,16 @@ class CrowdsAnalyser:
 		print "writing to {0}".format(path)
 		out = open(os.path.join(path), "w")
 		self.vehiclesCom.to_csv(out, sep='\t')
+
+	def writeModularityToFile(self, column_name, outputDir):
+		# out = open(os.path.join(outputDir, "vehicles_pandas.tsv"), 'w')
+		# self.vehicles.to_csv(out, sep='\t')
+		path = os.path.join(outputDir, "column_"+column_name+".tsv")
+		print "writing to {0}".format(path)
+		out = open(os.path.join(path), "w")
+		avg_mod = np.mean(self.df[column_name])
+		out.write("mean\t%.2f" % avg_mod)
+		
 
 	def writeStepsToFile(self, filename):
 		out = open(filename, 'w')
@@ -465,7 +486,10 @@ class CrowdsAnalyser:
 	def writeCommunitiesToFile(self, filename):
 		out = open(filename, 'w')
 		print ("writing to ", filename)
+		self.communities.columns = ['_'.join(col).strip() for col in self.communities.columns.values]
+		print  "columns",self.communities.columns
 		self.communities.to_csv(out, sep='\t')
+
 	
 	def plotComparison(self, dirname):
 
@@ -530,7 +554,236 @@ class CrowdsAnalyser:
 		numberOfVehicles = self.df.groupby('step').node_id.nunique()
 		numberOfVehicles.plot(title=str("Number of vehicles per step"))
 		plt.savefig(os.path.join(dirname, "num_of_veh_per_step.png"))
+	
+	def plot_histograms(self, column_name, input_dir, filename):
+		plt.figure()
+		self.vehiclesComSum.num_changes.hist(bins=300, ylim=(0,100))
+		plt.savefig(os.path.join(dirname, "hist-num-changes.png"))
+		plt.figure()
+
+	def plot_modularity(self, column_name, plot_title, inputfile):
+		# filepath = os.path.join(inputfile)
+		df = self.readFile(inputfile)
+		df[column_name].plot(title=plot_title)
+		plt.savefig(inputfile+".png")	
+	
+	def write_stability(self, inputdir, filename, titles):
+		folders = range(0, self.no_runs)
+		stats = {}
+		statnames = ["mean"]
+
+		# values = {name: {name: list() for name in statnames} for name in groupnames}
+		out = open(os.path.join(inputdir, "stability.csv"), 'w')
 		
+		for title in titles:	
+			out.write(title + '\n')
+			stats[title] = pd.DataFrame()
+			for folder in folders:
+				inputfile = os.path.join(inputdir, title, str(folder), filename)
+				print inputfile
+				df = self.readFile(inputfile)
+				vehs = self.analyseVehicles("node_id")
+				stats[title][str(folder)] = vehs.mean()
+			print title, stats[title]
+			df_summary = pd.DataFrame()
+			df_summary["min_val"] = stats[title].min(axis=1)
+			df_summary["mean_val"] = stats[title].mean(axis=1)
+			df_summary["max_val"] = stats[title].max(axis=1)
+			df_summary["stdev_val"] = stats[title].std(axis=1)
+			print df_summary
+			df_summary.to_csv(out, '\t')
+
+	def analyseCommunitiesLifetime(self, inputdir, column_name, titles):
+		folders = range(0, self.no_runs)
+		stats_lifetime = {}
+	
+		# values = {name: {name: list() for name in statnames} for name in groupnames}
+		out = open(os.path.join(inputdir, "community_lifetime.csv"), 'w')
+		for title in titles:	
+			out.write(title + '\n')
+			stats_lifetime[title] = pd.DataFrame()
+			for folder in folders:
+				inputfile = os.path.join(inputdir, title, str(folder), "crowds_communities.csv")
+				print inputfile
+				df = self.readFile(inputfile)
+				# comlife = df.groupby([column_name, "step"]).aggregate({"node_id":[np.size]}).reset_index()
+				# comlife.columns = [' '.join(col).strip() for col in comlife.columns.values]
+				# gb = comlife.groupby(column_name)
+				# life = gb.aggregate({"step":[np.size]})
+				# life.columns = [' '.join(col).strip() for col in life.columns.values]
+				# life = life[life["step size"] > 1]
+				# mean_lifetime = np.mean(life)
+				# plt.figure()
+				# life.hist(bins=20, sharey=True)
+				# plt.savefig(os.path.join(inputdir,title, str(folder), "histograms_lifetime.png"))
+				
+##
+				step_column = "step"
+				com_column = "com_id"
+				df = df[[step_column, com_column, "timeMeanSpeed", "degree", "speed", "com_size"]]
+				gb = df.groupby([com_column, step_column])
+				communities = gb.aggregate({
+					"degree":[np.mean, np.std, np.amin, np.amax],
+					"speed":[np.mean, np.std, np.amin, np.amax], 
+					"timeMeanSpeed":[np.mean, np.std, np.amin, np.amax], 
+					"com_size":[np.size]}).reset_index()
+				communities.columns = ['_'.join(col).strip() for col in communities.columns.values]
+				gb = communities.groupby([com_column+"_"])
+				data = gb.aggregate(np.mean)
+				data["num_steps"] = gb.size()
+				data = data.reset_index()
+
+				comunities_longer_lifetime = data[data["num_steps"] > 1]
+				comunities_second_lifetime = data[data["num_steps"] == 1]
+				print "comunities existing only one second\t{0}".format(len(comunities_second_lifetime))
+				print "comunities existing for longer than one second\t{0}".format(len(comunities_longer_lifetime))
+
+				comunities_with_one_vehicle = comunities_longer_lifetime[comunities_longer_lifetime["com_size_size"]==1]
+				comunities_with_more_vehicles = comunities_longer_lifetime[comunities_longer_lifetime["com_size_size"]>1]
+				print "comunities having one vehicle\t{0}".format(len(comunities_with_one_vehicle))
+				print "comunities having more vehicles\t{0}".format(len(comunities_with_more_vehicles))
+
+				data = comunities_with_more_vehicles[["timeMeanSpeed_mean", "timeMeanSpeed_std", "com_size_size", "num_steps"]]
+				means = np.mean(data)
+				# mean_lifetime = means["num_steps"]
+				stats_lifetime[title][str(folder)] = means
+
+			print title, stats_lifetime[title]
+			df_summary = pd.DataFrame()
+			df_summary["min_val"] = stats_lifetime[title].min(axis=1)
+			df_summary["mean_val"] = stats_lifetime[title].mean(axis=1)
+			df_summary["max_val"] = stats_lifetime[title].max(axis=1)
+			df_summary["std_val"] = stats_lifetime[title].std(axis=1)
+			print df_summary
+			df_summary.to_csv(out, '\t')
+
+
+		
+	def plot_modularities(self, column_name, plot_title, titlenames,  inputdir, filename):
+		folders = range(0, self.no_runs)
+		statnames = ["mean"]
+		plt.rc('text', usetex=True)
+		plt.rc('font', family='serif')
+		fig = plt.figure()
+		fig, ax = plt.subplots()
+		for title in titlenames:	
+			mod_df = pd.DataFrame()
+			print title, mod_df.head()
+			for folder in folders:
+				filepath = os.path.join(inputdir, title, str(folder), filename)
+				print filepath
+				df = self.readFile(filepath)
+				mod_df[str(folder)] = df[column_name]
+				if column_name == "weighted_com_modularity" and title == "SandSharc_oryg":
+					mod_df[str(folder)] = df["com_modularity"]
+			df = pd.DataFrame()
+			df["min_mod"] = mod_df.min(axis=1)
+			df["mean_mod"] = mod_df.mean(axis=1)
+			df["max_mod"] = mod_df.max(axis=1)
+			df = df.ix[1:]
+			print df.head()
+			columns = ["min_mod", "mean_mod", "max_mod"]
+			styles = [self.colors[title]+'--',self.colors[title]+'-',self.colors[title]+'--']
+			linewidths = [1, 2, 1]
+			for col, style, lw in zip(df.columns, styles, linewidths):
+				if col == "mean_mod":
+					df[col].plot(style=style, lw=lw, ax=ax, legend=True, label=self.labels[title])
+				else:
+					df[col].plot(style=style, lw=lw, ax=ax, legend=False)
+			# df.min_mod.plot(title=str("Min Modularity"), style='-',  legend=True)
+			# df.mean_mod.plot(title=str(title), style={"c": "blue"}, legend=True)
+			# df.max_mod.plot(title=str("Max Modularity"), style='-', legend=True)
+		ax.set_ylabel(plot_title)
+		ax.set_xlabel('Simulation time (s)')
+		os.system("mkdir " + os.path.join(inputdir, "plots_"+str(len(titlenames))))
+		plt.savefig(os.path.join(inputdir, "plots_"+str(len(titlenames)), "plot_"+column_name+".pdf"))	
+	
+	def get_axes_ranges(self, df, xlabel, ylabels):
+	    xmin = 0
+	    ymin = 0
+	    xmax = 0
+	    ymax = 0
+	    x = max(df[xlabel])
+	    if x > xmax:
+	        xmax = x
+	    for ylabel in ylabels:
+	        y = max(df[ylabel])
+	        if y > ymax:
+	            ymax = y
+	    return [xmin, xmax, ymin, ymax]
+
+	def floor_number(number, span):
+	    return (number // span) * span
+
+	def analyse_graph(self, filename, outputdir):
+		df = self.readFile(filename)
+		print df[:5]
+		return
+
+		columns = ["nodes", "edges", "avg_degree"] #, "com_count", "max_com_size", "min_com_size", "std_com_dist"]
+		if "avg_edge_weight" in df.columns:
+			columns.append("avg_edge_weight")
+		histdf = pd.DataFrame()
+		for column in columns:
+			plt.figure()
+			df[column].plot()
+			histdf[column] = df[column]
+			plt.savefig(os.path.join(outputdir, "graph_"+column+".png"))
+
+
+
+		histdf.mean().to_csv(os.path.join(outputdir,"graph_mean.csv"), sep='\t')
+		histdf.sum().to_csv(os.path.join(outputdir,"graph_sum.csv"), sep='\t')
+		histdf.min().to_csv(os.path.join(outputdir,"graph_min.csv"), sep='\t')
+		histdf.max().to_csv(os.path.join(outputdir,"graph_max.csv"), sep='\t')
+		histdf.std().to_csv(os.path.join(outputdir,"graph_std.csv"), sep='\t')
+		
+		plt.figure()
+		histdf.plot()
+		plt.savefig(os.path.join(outputdir, "graph_all.png"))
+
+	def analyse_graphs(self, inputdir):
+		folders = ["Highway", "Highway_congestion"]
+		title = "higways"
+		# folders = ["Manhattan"]
+		# title = "Manhattan"
+		# folders = ["Manhattan_avgspeed90"]
+		# title = "Manhattan"
+		columns = ["nodes", "edges", "avg_degree"] #, "com_count", "max_com_size", "min_com_size", "std_com_dist"]
+		fig, axes = plt.subplots(nrows=len(columns), ncols=1, figsize=(12, 8))
+		# check for egde weight column in df
+		filename = os.path.join(inputdir, folders[0], "MobileSandSharc_oryg", "0", "crowds_graph.csv")
+		df = self.readFile(filename)
+		weight_column = "avg_edge_weight"
+		if weight_column in df.columns:
+			fig, axes = plt.subplots(nrows=len(columns)+2, ncols=1, figsize=(12, 12))
+		
+
+		for folder in folders:
+			print "plotting " + folder
+			filename = os.path.join(inputdir, folder, "MobileSandSharc_oryg", "0", "crowds_graph.csv")
+			df = self.readFile(filename)
+			
+			histdf = pd.DataFrame()
+			i = 0
+			for i,column in enumerate(columns):
+				df[column].plot(ax=axes[i], label=folder, legend=True)
+				axes[i].set_ylabel(column)
+			# read mobility similarity
+			if weight_column in df:
+				i += 1
+				df[weight_column].plot(ax=axes[i], label=folder, legend=True)
+				axes[i].set_ylabel("mobility_similarity")
+			# read linkduration
+			filename = os.path.join(inputdir, folder, "SandSharc_oryg", "0", "crowds_graph.csv")
+			df = self.readFile(filename)
+			if weight_column in df:
+				i += 1
+				df[weight_column].plot(ax=axes[i], label=folder, legend=True)
+				axes[i].set_ylabel("link_duration")
+
+		plt.savefig(os.path.join(inputdir, "graphs_compare_"+title+".png"))
+
 
 # def analyseVehicles(self, self.df, column, outputDir):
 # 	self.df1 = DataFrame({'number_of_steps' : self.df.groupby(['node_id','com_id']).size()}).reset_index()

@@ -43,8 +43,8 @@ def main():
 
 	if options.type == "reduce":
 		print ("read ", options.inputFile)
-		print ("read ", options.outputFile)
-		outFile = open(options.outputFile, 'w')
+		print ("write ", options.outputFile)
+		outFile = open(options.outputFile, 'w+')
 		step = 10
 		timeIndex = 0
 		if "pandas" in options.inputFile:
@@ -55,30 +55,106 @@ def main():
 			for data_line in f:
 				processLine(data_line, outFile, timeIndex, step)
 
+	""" Analyses vehicles. Groups by vehicle and its community:
+		"veh_com_pandas.tsv":
+		com_size size - number of steps for given vehicle,community
+		com_size mean - average size of the community for given vehicle,community
+		"veh_com_changes_pandas.tsv":
+		node_id	avg_steps_in_com steps avg_com_size num_changes
+	"""
 	if options.type == "vehicles":
 		ca = CrowdsAnalyser()
-		ca.readFile(os.path.join(options.outputDir, "communities.csv"))
-		ca.analyseVehicles("node_id",options.outputDir)
+		filepath = os.path.join(options.outputDir, "communities.csv")
+		if not os.path.exists(filepath):
+			filepath = os.path.join(options.outputDir, "crowds_communities.csv")
+		ca.readFile(filepath)
+		ca.analyseVehicles("node_id")
+		ca.plot_vehicle_hist(options.outputDir)
 		ca.writeVehiclesToFile(options.outputDir)
+
+	if options.type == "modularity":
+		ca = CrowdsAnalyser()
+		filepath = os.path.join(options.outputDir, "graph.txt")
+		if not os.path.exists(filepath):
+			filepath = os.path.join(options.outputDir, "crowds_graph.csv")
+		ca.readFile(filepath)
+		ca.analyseModularity("step", "modularity", options.outputDir)
+		ca.writeModularityToFile("modularity", options.outputDir)
+		ca.analyseModularity("step", "weighted_com_modularity", options.outputDir)
+		ca.writeModularityToFile("weighted_com_modularity", options.outputDir)
+
+	titlenames = [
+			# "SandSharc_oryg", "SandSharc_link_duration", 
+			# "SandSharc_mobility_instant", "SandSharc_mobility_timemean",
+			# "SandSharc_hybrid_instant", "SandSharc_hybrid_timemean"
+			# "SandSharc_hybrid_timemean"
+			# "NewSawSharc_oryg", "NewSawSharc_mod"
+			"SandSharc_ag"
+			# "SandSharc_hybrid_timemean", "SandSharc_hybrid_timemean_modifications"
+			]
+
+	if options.type == "plot_modularities":
+		ca = CrowdsAnalyser()
+
+		if options.outputDir:
+			ca.plot_modularities("weighted_com_modularity", "Weighted modularity", titlenames, options.outputDir, "crowds_graph.csv")
+			#ca.plot_modularities("com_modularity", "Weighted modularity", titlenames, options.outputDir, "crowds_graph.csv")
+			ca.plot_modularities("avg_com_size", "Average community size", titlenames, options.outputDir, "crowds_graph.csv")
+			ca.plot_modularities("com_count", "Number of communities", titlenames, options.outputDir, "crowds_graph.csv")
+			ca.plot_modularities("max_com_size", "Maximum community size", titlenames, options.outputDir, "crowds_graph.csv")
+			# titlenames = ["SandSharc_oryg", "MobileSandSharc_oryg"]
+			# ca.plot_modularities("weighted_com_modularity", "Weighted modularity", titlenames, options.outputDir, "crowds_graph.csv")
+			# ca.plot_modularities("avg_com_size", "Average community size", titlenames, options.outputDir, "crowds_graph.csv")
+			# ca.plot_modularities("com_count", "Number of communities", titlenames, options.outputDir, "crowds_graph.csv")
+			# ca.plot_modularities("max_com_size", "Maximum community size", titlenames, options.outputDir, "crowds_graph.csv")
+		if options.inputFile:
+			ca.plot_modularity("weighted_com_modularity", "weighted_com_modularity",  options.inputFile)
+	
+	if options.type == "stability":
+		ca = CrowdsAnalyser()
+		ca.write_stability(options.inputDir, "crowds_communities.csv", titlenames)
+
+	if options.type == "communities_life":
+		ca = CrowdsAnalyser()
+		# titlenames = ["SandSharc_hybrid_timemean"]
+		ca.analyseCommunitiesLifetime(options.inputDir , "com_id", titlenames)
+		# ca.plotCommunitySize(options.outputDir)
+
+	if options.type == "graph":
+		ca = CrowdsAnalyser()
+		if options.inputFile:
+			ca.analyse_graph(options.inputFile, options.outputDir)
+		elif options.inputDir:
+			ca.analyse_graphs(options.inputDir)
 
 	if options.type == "links":
 		ca = CrowdsAnalyser()
-		ca.readFile(os.path.join(options.outputDir, "communities.csv"))
+		filepath = os.path.join(options.outputDir, "communities.csv")
+		if not os.path.exists(filepath):
+			filepath = os.path.join(options.outputDir, "crowds_communities.csv")
+		ca.readFile(filepath)
 		ca.analyseLinks("link_id",options.outputDir)
 		# ca.writeLinksToFile(options.outputDir)
 
 	if options.type == "communities_pandas":
 		ca = CrowdsAnalyser()
 		print "ca.readFile..."
-		ca.readFile(os.path.join(options.outputDir, "communities.csv"))
+		filepath = os.path.join(options.outputDir, "communities.csv")
+		if not os.path.exists(filepath):
+			filepath = os.path.join(options.outputDir, "crowds_communities.csv")
+		ca.readFile(filepath)
 		print "ca.analyseSteps()..."
 		ca.analyseCommunities("step","com_id")
-		ca.writeCommunitiesToFile(os.path.join(options.outputDir, "communities_pandas.tsv"))
+		ca.writeCommunitiesToFile(os.path.join(options.outputDir, "communities_pandas.csv"))
 		# ca.plotCommunitySize(options.outputDir)
+
 
 	if options.type == "all":
 		ca = CrowdsAnalyser()
-		ca.readFile(os.path.join(options.outputDir, "communities.csv"))
+		filepath = os.path.join(options.outputDir, "communities.csv")
+		if not os.path.exists(filepath):
+			filepath = os.path.join(options.outputDir, "crowds_communities.csv")
+		ca.readFile(filepath)
 		# ca.analyseCommunities("step","com_id")
 		# ca.writeCommunitiesToFile(os.path.join(options.outputDir, "communities_pandas.tsv"))
 		# ca.plotCommunitySize(options.outputDir)

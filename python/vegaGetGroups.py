@@ -70,22 +70,37 @@ def processLine(line):
 		# add data
 		vehiclesCount += 1
 		currentVehiclesCount += 1
+		old_indexes = {
+			"step":0, "node_id":1, "x":2, "y":3, "degree":4, 
+			"cc_size": 7,
+			"com_id":8, "com_score":9, "com_size":10, "speed":12, 
+			"num_stops":13
+		}
+
+		indexes = {
+			"step":0, "node_id":1, "x":2, "y":3, "degree":4, 
+			"com_id":5, "com_score":6, "com_size":7, "link_id":8, "speed":9, "avg_speed":10,
+			"num_stops":11, "is_originator":12, "dynamism":13, "timeMeanSpeed":14, "maxHistoryRecords":15,
+			"maxHistoryRecords":16
+		}
 		# step	node id	x	y	degree	neighbors	community id	community score	community size	connected component id
-		step = float(data[0])
-		vehicleId = str(data[1])	
-		x = float(data[2])
-		y = float(data[3])	
-		degree = float(data[4])
+		step = float(data[indexes["step"]])
+		vehicleId = str(data[indexes["node_id"]])	
+		x = float(data[indexes["x"]])
+		y = float(data[indexes["y"]])	
+		degree = float(data[indexes["degree"]])
 		# neighbors = str(data[5]).split(separator2)
 		currentVehiclesCount += 1
-		communityId = str(data[8]).strip()
+		communityId = str(data[indexes["com_id"]]).strip()
 		communityScore = 0
 		if options.type == "community":
-			communityScore = float(data[9])
-		comSize = float(data[10])
-		ccSize = float(data[7])
-		speed = float(data[12])
-		numOfStops = float(data[13])
+			communityScore = float(data[indexes["com_score"]])
+		comSize = float(data[indexes["com_size"]])
+		ccSize = 0
+		if "cc_size" in indexes:
+			cc_size = float(data[indexes["cc_size"]])
+		speed = float(data[indexes["speed"]])
+		numOfStops = float(data[indexes["num_stops"]])
 		# size = 30
 		if (communityId not in communities.keys()): 
 			colorIndex += 1
