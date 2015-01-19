@@ -38,7 +38,7 @@ import java.util.Dictionary;
 import java.util.Random;
 
 import org.graphstream.algorithm.Algorithm;
-import org.graphstream.algorithm.measure.MobilityMeasure;
+import org.graphstream.algorithm.community.MobilityMeasure;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;

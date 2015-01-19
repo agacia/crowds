@@ -4,7 +4,7 @@
 *.jar
 *.war
 *.ear
-
+src/.DS_Store
 bin
 output
 .DS_Store
@@ -14,5 +14,5 @@ prefix_*
 .settings
 *.sublime-*
 scripts/old/*
-
+libs/*.jar.asc
 python/*

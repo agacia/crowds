@@ -18,6 +18,7 @@ class CrowdsAnalyser:
 		self.indexStep = 1
 		self.postfixLenghth = 1
 		self.no_runs = 2
+		self.average_span = 60
 		self.labels = {
 			"SandSharc_oryg": "NoStability",
 			"SandSharc_link_duration": "Link",
@@ -171,6 +172,7 @@ class CrowdsAnalyser:
 	def plot_vehicle_hist(self, dirname):
 		plt.figure()
 		self.vehiclesComSum.hist(bins=300, sharey=True)
+		plt.ylim([0,180])
 		plt.savefig(os.path.join(dirname, "histograms.png"))
 		# fig, axes = plt.subplots(nrows=1, ncols=4, figsize=(12, 4))
 		# for i,var in enumerate(self.vehiclesComSum.columns):
@@ -567,14 +569,16 @@ class CrowdsAnalyser:
 		df[column_name].plot(title=plot_title)
 		plt.savefig(inputfile+".png")	
 	
-	def write_stability(self, inputdir, filename, titles):
+	def write_stability(self, inputdir, filename, titles, start_step, stop_step):
 		folders = range(0, self.no_runs)
 		stats = {}
+		# stats_all = {}
 		statnames = ["mean"]
 
 		# values = {name: {name: list() for name in statnames} for name in groupnames}
 		out = open(os.path.join(inputdir, "stability.csv"), 'w')
 		
+		step_column = 'step'
 		for title in titles:	
 			out.write(title + '\n')
 			stats[title] = pd.DataFrame()
@@ -582,30 +586,87 @@ class CrowdsAnalyser:
 				inputfile = os.path.join(inputdir, title, str(folder), filename)
 				print inputfile
 				df = self.readFile(inputfile)
+				if start_step != None and stop_step != None:
+					# start_step = df[step_column][0]
+					# stop_step = df[step_column][len(df)-1]
+					print "start_step, stop_step", start_step, stop_step
+					df = df[df[step_column] >= start_step] 
+					df = df[df[step_column] <= stop_step]
+					self.df = df
 				vehs = self.analyseVehicles("node_id")
 				stats[title][str(folder)] = vehs.mean()
 			print title, stats[title]
-			df_summary = pd.DataFrame()
-			df_summary["min_val"] = stats[title].min(axis=1)
-			df_summary["mean_val"] = stats[title].mean(axis=1)
-			df_summary["max_val"] = stats[title].max(axis=1)
-			df_summary["stdev_val"] = stats[title].std(axis=1)
-			print df_summary
-			df_summary.to_csv(out, '\t')
 
-	def analyseCommunitiesLifetime(self, inputdir, column_name, titles):
+			out.write("\nstats_stability_all\n")
+			self.print_summary_df(stats[title], out)
+			# out.write("\nstats_stability_all\n")
+			# self.print_summary_df(stats_all[title], out)
+
+	def analyse_link_lifetime(self, inputdir, inputfile, start_step, stop_step):
+
+		out_contacts = open(os.path.join(inputdir, "contacts.csv"), 'w')
+		out_average_lifetime = open(os.path.join(inputdir, "average_lifetime.csv"), 'w')
+			
+		df = pd.read_csv(inputfile, sep="\t")
+		print "read df "
+		print df.head()
+		step_column = 'step'
+		if start_step != None and stop_step != None:
+			# start_step = df[step_column][0]
+			# stop_step = df[step_column][len(df)-1]
+			print "start_step, stop_step", start_step, stop_step
+			df = df[df[step_column] >= start_step] 
+			df = df[df[step_column] <= stop_step]
+		
+		df['contact_number'] = df['link_duration'] == 1
+				
+		edge_column = 'edge_id'
+		gb = df.groupby(edge_column)
+		contact_time = gb.size()
+
+		contacts = gb.aggregate({'contact_number':sum})
+		contacts["contact_time"] = contact_time	
+		contacts["average_lifetime"] = contacts["contact_time"] / contacts["contact_number"]
+
+		print contacts.head(), type(contacts)
+		contacts.to_csv(out_contacts, '\t')
+
+		all_average_lifetime = np.mean(contacts["average_lifetime"])
+		out_average_lifetime.write("all_average_lifetime\t{0}".format(all_average_lifetime))
+		print "writing to {0}".format(out_average_lifetime)
+
+	def analyse_communities_lifetime(self, inputdir, column_name, titles, start_step, stop_step):
 		folders = range(0, self.no_runs)
 		stats_lifetime = {}
+		stats_lifetime_all = {}
+		stats = {}
 	
 		# values = {name: {name: list() for name in statnames} for name in groupnames}
 		out = open(os.path.join(inputdir, "community_lifetime.csv"), 'w')
 		for title in titles:	
 			out.write(title + '\n')
 			stats_lifetime[title] = pd.DataFrame()
+			stats_lifetime_all[title] = pd.DataFrame()
+			stats[title] = {}
+			stats[title]['one_second_com'] = []
+			stats[title]['more_one_second_com'] = []
+			stats[title]['more_one_second_com_singl'] = []
+			stats[title]['more_one_second_com_nosingl'] = []
+			step_column = "step"
+			com_column = "com_id"
+
 			for folder in folders:
 				inputfile = os.path.join(inputdir, title, str(folder), "crowds_communities.csv")
 				print inputfile
 				df = self.readFile(inputfile)
+				
+				if start_step != None and stop_step != None:
+					# start_step = df[step_column][0]
+					# stop_step = df[step_column][len(df)-1]
+					print "start_step, stop_step", start_step, stop_step
+					df = df[df[step_column] >= start_step] 
+					df = df[df[step_column] <= stop_step]
+	
 				# comlife = df.groupby([column_name, "step"]).aggregate({"node_id":[np.size]}).reset_index()
 				# comlife.columns = [' '.join(col).strip() for col in comlife.columns.values]
 				# gb = comlife.groupby(column_name)
@@ -616,10 +677,7 @@ class CrowdsAnalyser:
 				# plt.figure()
 				# life.hist(bins=20, sharey=True)
 				# plt.savefig(os.path.join(inputdir,title, str(folder), "histograms_lifetime.png"))
-				
 ##
-				step_column = "step"
-				com_column = "com_id"
 				df = df[[step_column, com_column, "timeMeanSpeed", "degree", "speed", "com_size"]]
 				gb = df.groupby([com_column, step_column])
 				communities = gb.aggregate({
@@ -635,31 +693,81 @@ class CrowdsAnalyser:
 
 				comunities_longer_lifetime = data[data["num_steps"] > 1]
 				comunities_second_lifetime = data[data["num_steps"] == 1]
-				print "comunities existing only one second\t{0}".format(len(comunities_second_lifetime))
-				print "comunities existing for longer than one second\t{0}".format(len(comunities_longer_lifetime))
-
+				stats[title]['one_second_com'].append(len(comunities_second_lifetime))
+				stats[title]['more_one_second_com'].append(len(comunities_longer_lifetime))
 				comunities_with_one_vehicle = comunities_longer_lifetime[comunities_longer_lifetime["com_size_size"]==1]
 				comunities_with_more_vehicles = comunities_longer_lifetime[comunities_longer_lifetime["com_size_size"]>1]
-				print "comunities having one vehicle\t{0}".format(len(comunities_with_one_vehicle))
-				print "comunities having more vehicles\t{0}".format(len(comunities_with_more_vehicles))
+				stats[title]['more_one_second_com_singl'].append(len(comunities_with_one_vehicle))
+				stats[title]['more_one_second_com_nosingl'].append(len(comunities_with_more_vehicles))
 
-				data = comunities_with_more_vehicles[["timeMeanSpeed_mean", "timeMeanSpeed_std", "com_size_size", "num_steps"]]
-				means = np.mean(data)
+				data_selected = comunities_with_more_vehicles[["timeMeanSpeed_mean", "timeMeanSpeed_std", "com_size_size", "num_steps"]]
+				means_selected = np.mean(data_selected)
 				# mean_lifetime = means["num_steps"]
-				stats_lifetime[title][str(folder)] = means
-
+				stats_lifetime[title][str(folder)] = means_selected 
+				data_all = data[["timeMeanSpeed_mean", "timeMeanSpeed_std", "com_size_size", "num_steps"]]
+				means_all = np.mean(data_all)				
+				stats_lifetime_all[title][str(folder)] = means_all
+				
 			print title, stats_lifetime[title]
-			df_summary = pd.DataFrame()
-			df_summary["min_val"] = stats_lifetime[title].min(axis=1)
-			df_summary["mean_val"] = stats_lifetime[title].mean(axis=1)
-			df_summary["max_val"] = stats_lifetime[title].max(axis=1)
-			df_summary["std_val"] = stats_lifetime[title].std(axis=1)
-			print df_summary
-			df_summary.to_csv(out, '\t')
+
+			out.write("\nstats_lifetime\n")
+			self.print_summary_df(stats_lifetime[title], out)
+			out.write("\nstats_lifetime_all\n")
+			self.print_summary_df(stats_lifetime_all[title], out)
+			out.write("\nstats\n")
+
+			self.print_summary_dict(stats[title], out)
+
+	def print_summary_df(self, df, out):
+		df_summary = pd.DataFrame()
+		df_summary["min_val"] = df.min(axis=1)
+		df_summary["mean_val"] = df.mean(axis=1)
+		df_summary["max_val"] = df.max(axis=1)
+		df_summary["std_val"] = df.std(axis=1)
+		df_summary.to_csv(out, '\t')
+
+	def print_summary_dict(self, dictionary, out):
+		for name, values in dictionary.items():
+			stats = "{0}\t{1}\t{2}\t{3}\t{4}\n".format(name, np.amin(values), np.mean(values), np.amax(values), np.std(values))
+			out.write(stats)
 
 
-		
-	def plot_modularities(self, column_name, plot_title, titlenames,  inputdir, filename):
+	def get_color(self, title):
+		color = random.choice(self.colors.values())
+		if title in self.colors.keys():
+			color = self.colors[title]
+		if "hybrid" in title:
+			color = 'g'
+		elif "mobility" in title:
+			color = 'b'
+		elif "linkduration" in title:
+			color = 'r'
+		elif "nostab" in title:
+			color = 'c'
+		return color
+
+
+	def get_label(self, title):
+		label = title
+		if title in self.labels:
+			label = self.labels[title]
+
+		if "hybrid" in title:
+			label = 'Hybrid'
+		elif "mobility" in title:
+			label = 'Mobility'
+		elif "linkduration" in title:
+			label = 'Link duration'
+		elif "nostab" in title:
+			label = 'None'
+		return label
+
+
+	def floor_number(self, number, span):
+		return (number // span) * span
+
+
+	def plot_modularities(self, column_name, plot_title, titlenames,  inputdir, filename, start_step, stop_step):
 		folders = range(0, self.no_runs)
 		statnames = ["mean"]
 		plt.rc('text', usetex=True)
@@ -673,28 +781,50 @@ class CrowdsAnalyser:
 				filepath = os.path.join(inputdir, title, str(folder), filename)
 				print filepath
 				df = self.readFile(filepath)
+				step_column = 'step'
+				if start_step == None:
+					start_step = df[step_column][0]
+				if stop_step == None:
+					stop_step = df[step_column][len(df)-1]
 				mod_df[str(folder)] = df[column_name]
-				if column_name == "weighted_com_modularity" and title == "SandSharc_oryg":
+				if column_name == "weighted_com_modularity" and "nostab" in title:
 					mod_df[str(folder)] = df["com_modularity"]
 			df = pd.DataFrame()
 			df["min_mod"] = mod_df.min(axis=1)
 			df["mean_mod"] = mod_df.mean(axis=1)
 			df["max_mod"] = mod_df.max(axis=1)
 			df = df.ix[1:]
-			print df.head()
+			y = df
+			
+			#smooth 
+			smooth = True
+			# smooth = False
+			
+			start = start_step 
+			stop = stop_step
+			if smooth:
+				df['step2'] = self.floor_number(df.index, self.average_span)
+				y = df.groupby('step2').aggregate(np.mean).reset_index()
+				
+				start = start_step / self.average_span
+				stop = stop_step / self.average_span
+
+			y = y.ix[start:stop]
 			columns = ["min_mod", "mean_mod", "max_mod"]
-			styles = [self.colors[title]+'--',self.colors[title]+'-',self.colors[title]+'--']
+			color = self.get_color(title)
+			styles = [color+'--',color+'-',color+'--']
 			linewidths = [1, 2, 1]
 			for col, style, lw in zip(df.columns, styles, linewidths):
 				if col == "mean_mod":
-					df[col].plot(style=style, lw=lw, ax=ax, legend=True, label=self.labels[title])
+					label = self.get_label(title)
+					y[col].plot(style=style, lw=lw, ax=ax, legend=True, label=label)
 				else:
-					df[col].plot(style=style, lw=lw, ax=ax, legend=False)
+					y[col].plot(style=style, lw=lw, ax=ax, legend=False)
 			# df.min_mod.plot(title=str("Min Modularity"), style='-',  legend=True)
 			# df.mean_mod.plot(title=str(title), style={"c": "blue"}, legend=True)
 			# df.max_mod.plot(title=str("Max Modularity"), style='-', legend=True)
 		ax.set_ylabel(plot_title)
-		ax.set_xlabel('Simulation time (s)')
+		ax.set_xlabel('Simulation time (min)')
 		os.system("mkdir " + os.path.join(inputdir, "plots_"+str(len(titlenames))))
 		plt.savefig(os.path.join(inputdir, "plots_"+str(len(titlenames)), "plot_"+column_name+".pdf"))	
 	
@@ -712,13 +842,10 @@ class CrowdsAnalyser:
 	            ymax = y
 	    return [xmin, xmax, ymin, ymax]
 
-	def floor_number(number, span):
-	    return (number // span) * span
-
 	def analyse_graph(self, filename, outputdir):
 		df = self.readFile(filename)
 		print df[:5]
-		return
+		
 
 		columns = ["nodes", "edges", "avg_degree"] #, "com_count", "max_com_size", "min_com_size", "std_com_dist"]
 		if "avg_edge_weight" in df.columns:

@@ -48,18 +48,18 @@ def main():
     if cluster:
         pass
 
-    valid_dgs = check_dgs(options.inputFile)
-    if not valid_dgs:
-        print "DGS file not valid"
-        return
+    if options.inputFile:
+        valid_dgs = check_dgs(options.inputFile)
+        if not valid_dgs:
+            print "DGS file not valid"
+            return
 
-    os.system("mkdir %s" % options.outputFolder)
-
-    # add_link_duration_dgs(options.inputFile)
-
+        os.system("mkdir %s" % options.outputFolder)
+        app = os.path.join(options.crowdsPath, options.crowdsjar)
+ 
     # run crodws
-    app = os.path.join(options.crowdsPath, options.crowdsjar)
-    args = " --inputFile %s --communityAlgorithmName %s --congestionAlgorithmName %s \
+    if options.calljava:
+        args = " --inputFile %s --communityAlgorithmName %s --congestionAlgorithmName %s \
 --outputDir %s --goal %s --startStep %s --endStep %s --numberOfIterations %s \
 --speedHistoryLength %s --speedType %s " % (
             options.inputFile, options.communityAlgorithmName,
@@ -67,16 +67,14 @@ def main():
             options.outputFolder, options.goal, options.startStep,
             options.endStep, options.numberOfIterations,
             options.speedHistoryLength, options.speedType)
-    if options.calljava:
         call_java(app, args)
-
 
     # analyse
     app = os.path.join(options.crowdsPath, "python", "analyse_crowds.py")
     inputfile = os.path.join(options.outputFolder, "crowds_communities.csv")
     analysis_type = "vehicles"
-    args = " --outputDir %s --type %s" % (
-       options.outputFolder, analysis_type)
+    args = " --outputDir %s --type %s --startStep %d --endStep %d " % (
+       options.outputFolder, analysis_type, options.startStep, options.endStep)
     call_python(app, args)
 
     inputfile = os.path.join(options.outputFolder, "crowds_graph.csv")
@@ -163,6 +161,7 @@ def call_python(app, args):
 
 
 if __name__ == '__main__':
+    print "Runcrowds...."
     main()
 
 

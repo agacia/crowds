@@ -7,18 +7,18 @@ import java.util.TreeMap;
 import org.apache.commons.math.stat.descriptive.moment.*;
 import org.graphstream.graph.*;
 
-public class MySandSharc extends DecentralizedCommunityAlgorithm {
+public class MySandSharc2 extends DecentralizedCommunityAlgorithm {
 
 	protected HashMap<Object, Double> communityScores;
 	protected HashMap<Object, Double> communityCounts;
 	protected int stallingThreshold = 5;
 	protected int breakPeriod = 5;
 
-	public MySandSharc() {
+	public MySandSharc2() {
 		super();
 	}
 
-	public MySandSharc(Graph graph) {
+	public MySandSharc2(Graph graph) {
 		super(graph);
 	}
 
@@ -59,7 +59,7 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		u.setAttribute(marker + ".old_score", previousScore);
 
 		if (u.getDegree() == 0 || previousCommunity == null) { // Revert to self-community if no more neighbors or manage first  iteration of the simulation
-			// AGATA1 if the node is already an originator stay
+			// AGATA1 if the node is already an originator do not originate
 			if (u.hasAttribute(marker + ".originator")) {
 				//System.err.println("Node was an originator");
 			}
@@ -78,8 +78,16 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 			 */
 			if (previousCommunity != null && ((Double) u.getAttribute(marker + ".score")) == 0.0) {
 				//System.out.println(u.getId() + " Falling back to epidemic.");
-				communityScores = communityCounts;
-				epidemicComputeNode(u);
+//				communityScores = communityCounts;
+//				epidemicComputeNode(u);
+				// AGATA2 if the node is already an originator do not originate
+				if (u.hasAttribute(marker + ".originator")) {
+					//System.err.println("Node was an originator");
+				}
+				else {
+					//System.out.println("No preffered community even though it has neighbors " + u.getDegree());
+					originateCommunity(u);
+				}
 			}
 		}
 		
@@ -609,21 +617,28 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 	 * @complexity O(DELTA) where DELTA is the average node degree in the
 	 *             network
 	 */
-	protected Double neighborhood_similarity(Node a, Node b) {
-		Double similarity = 0.0;
+	public Double neighborhood_similarity(Node a, Node b) {
+		Double similarityA = 0.0;
+		Double similarityB = 0.0;
+		Double n_similarity = 0.0;
 		for (Edge e : a.getEnteringEdgeSet()) {
 			Node v = e.getOpposite(a);
+			//System.out.println("v.getId() " + v.getId() + " b " + b.getId() + " !b.hasEdgeFrom(v.getId()) " +!b.hasEdgeFrom(v.getId()) );
 			if (!b.hasEdgeFrom(v.getId()))
-				similarity += 1.0;
+				similarityA += 1.0;
 		}
 		for (Edge e : b.getEnteringEdgeSet()) {
 			Node v = e.getOpposite(b);
 			if (!a.hasEdgeFrom(v.getId()))
-				similarity += 1.0;
+				similarityB += 1.0;
 		}
-		if (a.getDegree() == 0 && b.getDegree() == 0) 
-			return 0.0;
-		else
-			return 1 - (similarity / (a.getDegree() + b.getDegree()));
+		if (a.getDegree() == 0 && b.getDegree() == 0) {
+			n_similarity = 0.0;
+		}
+		else {
+			n_similarity = 1 - ( (similarityA + similarityB) / (a.getDegree() + b.getDegree()));
+		}
+//		System.out.println("\nsimilarityA " + similarityA + " similarityB " + similarityB + " a.getDegree() " + a.getDegree() + " b.getDegree() " + b.getDegree());
+		return n_similarity;
 	}
 }

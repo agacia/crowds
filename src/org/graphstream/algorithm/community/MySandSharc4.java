@@ -7,21 +7,21 @@ import java.util.TreeMap;
 import org.apache.commons.math.stat.descriptive.moment.*;
 import org.graphstream.graph.*;
 
-public class MySandSharc extends DecentralizedCommunityAlgorithm {
+public class MySandSharc4 extends DecentralizedCommunityAlgorithm {
 
 	protected HashMap<Object, Double> communityScores;
 	protected HashMap<Object, Double> communityCounts;
 	protected int stallingThreshold = 5;
 	protected int breakPeriod = 5;
 
-	public MySandSharc() {
+	public MySandSharc4() {
 		super();
 	}
 
-	public MySandSharc(Graph graph) {
+	public MySandSharc4(Graph graph) {
 		super(graph);
 	}
-
+	
 	/**
 	 * Allows to set generic parameters as a key,value 
 	 * @param params
@@ -59,7 +59,7 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		u.setAttribute(marker + ".old_score", previousScore);
 
 		if (u.getDegree() == 0 || previousCommunity == null) { // Revert to self-community if no more neighbors or manage first  iteration of the simulation
-			// AGATA1 if the node is already an originator stay
+			// AGATA1 if the node is already an originator do not originate
 			if (u.hasAttribute(marker + ".originator")) {
 				//System.err.println("Node was an originator");
 			}
@@ -78,8 +78,16 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 			 */
 			if (previousCommunity != null && ((Double) u.getAttribute(marker + ".score")) == 0.0) {
 				//System.out.println(u.getId() + " Falling back to epidemic.");
-				communityScores = communityCounts;
-				epidemicComputeNode(u);
+//				communityScores = communityCounts;
+//				epidemicComputeNode(u);
+				// AGATA2 if the node is already an originator do not originate
+				if (u.hasAttribute(marker + ".originator")) {
+					//System.err.println("Node was an originator");
+				}
+				else {
+					//System.out.println("No preffered community even though it has neighbors " + u.getDegree());
+					originateCommunity(u);
+				}
 			}
 		}
 		
@@ -141,28 +149,37 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		int remaining = (Integer) u.getAttribute(marker + ".break");
 
 		if (!u.hasAttribute(marker + ".break_done")) {
-			/*
-			 * Search for a neighbor in break mode, otherwise, initiate a
-			 * new community
-			 */
-			Object newCommunity = null;
-			for (Edge e : u.getEnteringEdgeSet()) {
-				Node v = e.getOpposite(u);
-				if (v.hasAttribute(marker)
-						&& v.hasAttribute(marker + ".break")
-						&& v.hasAttribute(marker + ".break_done")
-						&& v.hasAttribute(marker + ".broken_community")
-						&& v.<Object> getAttribute(
-								marker + ".broken_community").equals(
-								u.<Object> getAttribute(marker
-										+ ".broken_community"))) {
-					newCommunity = v.getAttribute(marker);
+			// AGATA4 find second best community from neighbors' communities
+			Object currentCommunity = u.getAttribute(marker);
+//			System.err.println("BREAK MODE\t" + graph.getStep() + "\t" + u.getId() + "\tcomId\t" + currentCommunity + "\tdegree\t" + u.getDegree() + "\tisOriginator\t" + u.getAttribute(marker + ".originator"));
+			HashMap<Object, Double> comStrength = communityScores(u); //HashMap<Object, Double>
+//			TreeMap<Object, Double> scores = new TreeMap<Object, Double>(communityScores);
+			Object maxCommunity = null;
+			Double maxScore = 0.0;
+			Double currentScore = 0.0;
+//			Double sumScore = 0.0;
+			for (Object c : comStrength.keySet()) {
+				Double s = comStrength.get(c);
+				if (c.equals(currentCommunity)) {
+					currentScore = s;
+				}
+				else {
+					if (s > maxScore || (s == maxScore && rng.nextDouble() >= 0.5)) {
+						maxCommunity = c;
+						maxScore = s;
+					}
 				}
 			}
-			if (newCommunity == null) {
+//			System.out.println(u.getId() + ", " + currentCommunity + ", " +communityScores.get(currentCommunity) + ", " + currentScore + "\tmaxCommunity\t" + maxCommunity + ", " + communityScores.get(maxCommunity) + ", " + maxScore);
+//			if (maxScore > currentScore) { System.err.println("maxScore > currentScore"); } 
+//			System.out.println("communityScores " + communityScores);
+//			System.out.println("comStrength " + comStrength);
+			String linkid = (String)u.getAttribute("link_id");
+			if (maxCommunity == null || maxScore < currentScore) {
 				originateCommunity(u);
-			} else {
-				u.setAttribute(marker, newCommunity);
+			}
+			else {
+				u.setAttribute(marker, maxCommunity);
 			}
 			u.setAttribute(marker + ".break_done", true);
 		}
@@ -234,6 +251,8 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		u.setAttribute(marker + ".new_originator", true);
 	}
 
+	
+	
 	protected void updateFreshessCounter(Node u) {
 		/*
 		 * Initialize freshness counter
@@ -255,8 +274,7 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 			Node v = e.getOpposite(u);
 			if (v.hasAttribute(marker)
 					&& v.hasAttribute(marker + ".freshness")
-					&& v.<Object> getAttribute(marker).equals(
-							u.<Object> getAttribute(marker))) {
+					&& v.<Object> getAttribute(marker).equals(u.<Object> getAttribute(marker))) {
 				if (similarity(u, v) >= u.getNumber(marker + ".threshold")
 						&& v.getNumber(marker + ".freshness") > freshness) {
 					freshness = (int) v.getNumber(marker + ".freshness");
@@ -529,7 +547,7 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 	 * @complexity O(DELTA^2) where DELTA is the average node degree in the
 	 *             network
 	 */
-	protected void communityScores(Node u) {
+	protected HashMap<Object, Double> communityScores(Node u) {
 		/*
 		 * Compute the "simple" count of received messages for each community.
 		 * This will be used as a fallback metric if the maximum "Sharc" score
@@ -546,6 +564,7 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		/*
 		 * Iterate over the nodes that this node "hears"
 		 */
+		Double sumScore = 0.0;
 		for (Edge e : u.getEnteringEdgeSet()) {
 			Node v = e.getOpposite(u);
 
@@ -553,16 +572,27 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 			 * Update the count for this community
 			 */
 			if (v.hasAttribute(marker)) {
+				Double sim = similarity(u, v);
 				// Update score
-				if (communityScores.get(v.getAttribute(marker)) == null)
+				if (communityScores.get(v.getAttribute(marker)) == null) {
+					communityScores.put(v.getAttribute(marker), sim);
+				} 
+				else {
 					communityScores.put(v.getAttribute(marker),
-							similarity(u, v));
-				else
-					communityScores.put(v.getAttribute(marker),
-							communityScores.get(v.getAttribute(marker))
-									+ similarity(u, v));
+							communityScores.get(v.getAttribute(marker)) + sim);
+				}
+				sumScore += sim;
 			}
 		}
+
+		Double sumScore2 = 0.0;
+		HashMap<Object, Double> comStrength = new HashMap<Object, Double>();
+		for (Object c : communityScores.keySet()) {
+			Double s = communityScores.get(c);
+			comStrength.put(c, s/sumScore);
+			sumScore2 += s;
+		}
+		return comStrength;
 	}
 	
 	/**
@@ -609,21 +639,34 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 	 * @complexity O(DELTA) where DELTA is the average node degree in the
 	 *             network
 	 */
-	protected Double neighborhood_similarity(Node a, Node b) {
-		Double similarity = 0.0;
+	public Double neighborhood_similarity(Node a, Node b) {
+		Double similarityA = 0.0;
+		Double similarityB = 0.0;
+		Double n_similarity = 0.0;
 		for (Edge e : a.getEnteringEdgeSet()) {
 			Node v = e.getOpposite(a);
+			//System.out.println("v.getId() " + v.getId() + " b " + b.getId() + " !b.hasEdgeFrom(v.getId()) " +!b.hasEdgeFrom(v.getId()) );
 			if (!b.hasEdgeFrom(v.getId()))
-				similarity += 1.0;
+				similarityA += 1.0;
 		}
 		for (Edge e : b.getEnteringEdgeSet()) {
 			Node v = e.getOpposite(b);
 			if (!a.hasEdgeFrom(v.getId()))
-				similarity += 1.0;
+				similarityB += 1.0;
 		}
-		if (a.getDegree() == 0 && b.getDegree() == 0) 
-			return 0.0;
-		else
-			return 1 - (similarity / (a.getDegree() + b.getDegree()));
+		if (a.getDegree() == 0 && b.getDegree() == 0) {
+			n_similarity = 0.0;
+		}
+		// AGATA3 if one of nodes has only one neighbor then neighborhood sim = 1 
+		else if (a.getDegree() == 1 || b.getDegree() == 1) {
+			n_similarity = 1.0;
+//			System.out.println("a.getDegree() " + a.getDegree() + " b.getDegree() " + b.getDegree());
+		}
+		else {
+			n_similarity = 1 - ( (similarityA + similarityB) / (a.getDegree() + b.getDegree()));
+		}
+//		System.out.println("\nsimilarityA " + similarityA + " similarityB " + similarityB + " a.getDegree() " + a.getDegree() + " b.getDegree() " + b.getDegree());
+		return n_similarity;
 	}
+
 }

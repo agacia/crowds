@@ -7,18 +7,18 @@ import java.util.TreeMap;
 import org.apache.commons.math.stat.descriptive.moment.*;
 import org.graphstream.graph.*;
 
-public class MySandSharc extends DecentralizedCommunityAlgorithm {
+public class MySandSharc_bak extends DecentralizedCommunityAlgorithm {
 
 	protected HashMap<Object, Double> communityScores;
 	protected HashMap<Object, Double> communityCounts;
 	protected int stallingThreshold = 5;
 	protected int breakPeriod = 5;
 
-	public MySandSharc() {
+	public MySandSharc_bak() {
 		super();
 	}
 
-	public MySandSharc(Graph graph) {
+	public MySandSharc_bak(Graph graph) {
 		super(graph);
 	}
 
@@ -59,17 +59,14 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		u.setAttribute(marker + ".old_score", previousScore);
 
 		if (u.getDegree() == 0 || previousCommunity == null) { // Revert to self-community if no more neighbors or manage first  iteration of the simulation
-			// AGATA1 if the node is already an originator stay
-			if (u.hasAttribute(marker + ".originator")) {
-				//System.err.println("Node was an originator");
-			}
-			else {
-				originateCommunity(u);
+			originateCommunity(u);
+			if (u.getDegree() == 0 ) {
+				System.err.println("Originate degree0\t" + graph.getStep() + "\tnode\t" + u.getId() + "\tcom\t" + u.getAttribute(marker) + "\tprevious com\t" + previousCommunity + "\tdegree\t" + u.getDegree());
 			}
 		}
-		else if (u.hasAttribute(marker + ".break")) {
-			performBreakMode(u);
-		}
+//		else if (u.hasAttribute(marker + ".break")) {
+//			performBreakMode(u);
+//		}
 		else { // Still no update, perform standard SHARC assignment
 			SawSharcComputeNode(u);
 			/*
@@ -85,7 +82,7 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 		
 		updateOriginator(u, previousCommunity);
 
-		checkBreakMode(u, previousCommunity);
+//		checkBreakMode(u, previousCommunity);
 		
 		
 	}
@@ -128,11 +125,10 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 			 * Enable break mode if the stalling threshold is reached
 			 */
 			if (u.getNumber(marker + ".stalling") >= stallingThreshold) {
-
 				// Enable break mode
 				u.setAttribute(marker + ".break", breakPeriod - 1);
-				u.setAttribute(marker + ".broken_community",
-						u.getAttribute(marker));
+				u.setAttribute(marker + ".broken_community", u.getAttribute(marker));
+//				System.err.println("Enter_break_mode\t" + graph.getStep() + "\tnode\t" + u.getId() + "\tcom\t" + u.getAttribute(marker) + "\tprevious com\t" + previousCommunity);
 			}
 		}
 	}
@@ -152,16 +148,17 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 						&& v.hasAttribute(marker + ".break")
 						&& v.hasAttribute(marker + ".break_done")
 						&& v.hasAttribute(marker + ".broken_community")
-						&& v.<Object> getAttribute(
-								marker + ".broken_community").equals(
-								u.<Object> getAttribute(marker
-										+ ".broken_community"))) {
+						&& v.<Object> getAttribute(marker + ".broken_community").equals(
+								u.<Object> getAttribute(marker+ ".broken_community"))) {
 					newCommunity = v.getAttribute(marker);
 				}
 			}
 			if (newCommunity == null) {
+				Object com = u.getAttribute(marker);
 				originateCommunity(u);
+				System.err.println("In_break_mode_originate\t" + graph.getStep() + "\tnode\t" + u.getId() + "\tcom\t" + u.getAttribute(marker) + "\tprevious com\t" + com + "\tdegree\t" + u.getDegree());
 			} else {
+//				System.err.println("In_break_mode_join\t" + graph.getStep() + "\tnode\t" + u.getId() + "\tcom\t" + u.getAttribute(marker) + "\tprevious com\t" + newCommunity);
 				u.setAttribute(marker, newCommunity);
 			}
 			u.setAttribute(marker + ".break_done", true);
@@ -625,5 +622,15 @@ public class MySandSharc extends DecentralizedCommunityAlgorithm {
 			return 0.0;
 		else
 			return 1 - (similarity / (a.getDegree() + b.getDegree()));
+	}
+	
+	/**
+	 * My changes
+	 * 
+	 */
+	@Override
+	public void nodeRemoved(String sourceId, long timeId, String nodeId) {
+		Node u = graph.getNode(nodeId);
+		System.out.println("Remove_originate\t" + graph.getStep() + "\tnode\t" + u.getId() + "\tcom\t" + u.getAttribute(marker) + "\torig\t" + u.hasAttribute(marker + ".originator") + "\tdegree\t" + u.getDegree());
 	}
 }

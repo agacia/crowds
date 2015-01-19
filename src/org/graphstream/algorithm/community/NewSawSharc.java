@@ -94,8 +94,10 @@ public class NewSawSharc extends Sharc {
 	public NewSawSharc(Graph graph) {
 		super(graph);
 	}
-
+	
+	@Override
 	public void setParameters(Dictionary<String, Object> params) {
+		super.setParameters(params);
 		if (params.get("weightMarker") != null) {
 			this.weightMarker = (String) params.get("weightMarker");
 		}	

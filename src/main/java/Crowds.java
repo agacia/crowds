@@ -20,7 +20,7 @@ import org.graphstream.algorithm.community.Community;
 import org.graphstream.algorithm.community.DecentralizedCommunityAlgorithm;
 import org.graphstream.algorithm.community.CongestionMeasure;
 import org.graphstream.algorithm.measure.CommunityDistribution;
-import org.graphstream.algorithm.measure.EdgeMeasure;
+import org.graphstream.algorithm.community.EdgeMeasure;
 import org.graphstream.algorithm.measure.MobileCommunityMeasure;
 import org.graphstream.algorithm.measure.Modularity;
 import org.graphstream.graph.Edge;
@@ -35,8 +35,6 @@ import org.graphstream.stream.file.FileSinkImages.Resolution;
 import org.graphstream.stream.file.FileSinkImages.Resolutions;
 import org.graphstream.stream.file.FileSource;
 import org.graphstream.stream.file.FileSourceFactory;
-
-import com.sun.xml.internal.ws.util.StringUtils;
 
 public class Crowds {
 	private static String sep = "\t";
@@ -459,22 +457,26 @@ public class Crowds {
 		for (Node node : _graph.getNodeSet()) {
 			Community community = (Community)node.getAttribute(_communityMarker);
 			Object linkId = "";
+			String linkidMarker = "link_id";
 			if (node.hasAttribute("vehicleLane")) {
-				linkId = (Object)node.getAttribute("vehicleLane");
+				linkidMarker = "vehicleLane";
 			}
+			linkId = (Object)node.getAttribute(linkidMarker);
 			Object speed = 0;
+			String speedMarker = "speed";
 			if (node.hasAttribute("vehicleSpeed")) {
-				speed = (Object)node.getAttribute("vehicleSpeed");
+				speedMarker = "vehicleSpeed";
 			}
+			speed = (Object)node.getAttribute(speedMarker);
 			Object avgSpeed = 0;
-			if (node.hasAttribute("vehicleAvgSpeed")) {
-				avgSpeed = (Object)node.getAttribute("vehicleAvgSpeed");
+			if (node.hasAttribute("speed")) {
+				avgSpeed = (Object)node.getAttribute("speed");
 				if (avgSpeed.equals(0.0) && !speed.equals(0)) {
 					avgSpeed = speed;
 				}
 			}
 			Integer numberOfStopsOnLane = 0;
-			String numberOfStopsMarker = "vehicleLane.stops";
+			String numberOfStopsMarker = linkidMarker +".stops";
 			if (node.hasAttribute(numberOfStopsMarker)) {
 				numberOfStopsOnLane = node.getAttribute(numberOfStopsMarker);
 			}
@@ -641,21 +643,24 @@ public class Crowds {
 			_outGraph.newLine();
 			_outGraph.flush();
 			
-			//write graph edges
-//			Iterator<Edge> it = _graph.getEdgeIterator();
-//			while (it.hasNext()) {
-//				Edge edge = it.next();
-//				// step\tedge_id\tdegree_a\t\degree_b\tsim_n\tlink_duration\tmobility_similarity\tweight
-//				int degree_a = edge.getNode0().getDegree();
-//				int degree_b = edge.getNode1().getDegree();
-//				Double linkDuration = edge.hasAttribute(this._linkDurationMarker) ? (Double)edge.getAttribute(this._linkDurationMarker) : 0.0;
-//				Double mobilitySimilarity = edge.hasAttribute(this._mobilitySimilarityMarker) ? (Double)edge.getAttribute(this._mobilitySimilarityMarker) : 0.0;
-//				Double weight = edge.hasAttribute(this._weightMarker) ? (Double)edge.getAttribute(this._weightMarker) : 0.0;
-//				Double n_sim = edge.hasAttribute("n_sim") ? (Double)edge.getAttribute("n_sim") : 0.0;
-//				_outEdges.write(step + "\t" + edge.getId() + "\t" +  degree_a +"\t" +  degree_b +"\t" +  n_sim + "\t" + linkDuration + "\t" + mobilitySimilarity + "\t" + weight + "\t" );
-//				_outEdges.newLine();
-//			}
-//			_outEdges.flush();
+//			write graph edges
+			Iterator<Edge> it = _graph.getEdgeIterator();
+			while (it.hasNext()) {
+				Edge edge = it.next();
+				// step\tedge_id\tdegree_a\t\degree_b\tsim_n\tlink_duration\tmobility_similarity\tweight
+				int degree_a = edge.getNode0().getDegree();
+				int degree_b = edge.getNode1().getDegree();
+				Double linkDuration = edge.hasAttribute(this._linkDurationMarker) ? (Double)edge.getAttribute(this._linkDurationMarker) : 0.0;
+				Double mobilitySimilarity = edge.hasAttribute(this._mobilitySimilarityMarker) ? (Double)edge.getAttribute(this._mobilitySimilarityMarker) : 0.0;
+				Double weight = edge.hasAttribute(this._weightMarker) ? (Double)edge.getAttribute(this._weightMarker) : 0.0;
+				Double n_sim = edge.hasAttribute("n_sim") ? (Double)edge.getAttribute("n_sim") : 0.0;
+				if (edge.getId().equals("60550-63244")) {
+					System.err.println("step\t" + step + "\t" + edge.getId() + "\t" +  degree_a +"\t" +  degree_b +"\t" +  n_sim + "\t" + linkDuration + "\t" + mobilitySimilarity + "\t" + weight + "\t" );
+				
+				}
+				_outEdges.write(step + "\t" + edge.getId() + "\t" +  degree_a +"\t" +  degree_b +"\t" +  n_sim + "\t" + linkDuration + "\t" + mobilitySimilarity + "\t" + weight + '\n');
+			}
+			_outEdges.flush();
 		}
 		catch (IOException e) {
 			e.printStackTrace();
